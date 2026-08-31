@@ -1,0 +1,16 @@
+basePath: /
+host: localhost:8000
+info:
+  contact: {}
+  description: API Para o gerenciamento de emails.
+  title: Pormade Email Manager API
+  version: "1.0"
+paths: {}
+schemes:
+- http
+swagger: "2.0"
+tags:
+- description: Operações relacionadas a autenticação
+  name: Auth
+- description: Operações relacionadas a usuários
+  name: User
