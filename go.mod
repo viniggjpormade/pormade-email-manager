@@ -72,6 +72,7 @@ require (
 )
 
 require (
+	github.com/confluentinc/confluent-kafka-go/v2 v2.15.0
 	github.com/gin-contrib/cors v1.7.7
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

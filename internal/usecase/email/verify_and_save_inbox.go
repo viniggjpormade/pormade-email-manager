@@ -1,6 +1,7 @@
 package email
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/google/uuid"
@@ -14,12 +15,14 @@ type VerifyAndSaveInboxUseCase interface {
 type verifyAndSaveInboxUseCase struct {
 	repository      domain.EmailRepository
 	storageProvider domain.StorageProvider
+	broker          domain.MessageBroker
 }
 
-func NewVerifyAndSaveInboxUseCase(repository domain.EmailRepository, storageProvider domain.StorageProvider) VerifyAndSaveInboxUseCase {
+func NewVerifyAndSaveInboxUseCase(repository domain.EmailRepository, storageProvider domain.StorageProvider, broker domain.MessageBroker) VerifyAndSaveInboxUseCase {
 	return &verifyAndSaveInboxUseCase{
 		repository:      repository,
 		storageProvider: storageProvider,
+		broker:          broker,
 	}
 }
 
@@ -29,7 +32,12 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 		return err
 	}
 
-	var emailsToSave []domain.Email
+	type emailPayload struct {
+		email            domain.Email
+		kafkaAttachments []map[string]interface{}
+	}
+
+	var emailsToSave []emailPayload
 	for _, email := range emails {
 		content, err := imapProvider.GetEmailByUid(email.Uid)
 		if err != nil {
@@ -68,6 +76,8 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 			IdAccounts: account.ID,
 		}
 
+		var kafkaAttachments []map[string]interface{}
+
 		for _, att := range content.Attachments {
 			fileUrl, err := useCase.storageProvider.Upload(att.Filename, att.Data)
 			if err != nil {
@@ -83,15 +93,44 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 				IdEmails:    emailToSave.ID,
 			}
 			emailToSave.Attachments = append(emailToSave.Attachments, attachmentRecord)
+
+			kafkaAttachments = append(kafkaAttachments, map[string]interface{}{
+				"id":           attachmentRecord.ID,
+				"filename":     att.Filename,
+				"content_type": att.ContentType,
+			})
 		}
 
-		emailsToSave = append(emailsToSave, emailToSave)
+		emailsToSave = append(emailsToSave, emailPayload{email: emailToSave, kafkaAttachments: kafkaAttachments})
 	}
 
-	for _, emailToSave := range emailsToSave {
+	for _, item := range emailsToSave {
+		emailToSave := item.email
 		err := useCase.repository.Create(&emailToSave)
 		if err != nil {
 			log.Printf("[Conta %d] Erro ao salvar email %s no banco: %v", account.ID, emailToSave.ID, err)
+			continue
+		}
+
+		if account.KafkaTopic != nil && useCase.broker != nil {
+			payload := map[string]interface{}{
+				"id":          emailToSave.ID,
+				"subject":     emailToSave.Subject,
+				"from":        emailToSave.From,
+				"to":          emailToSave.To,
+				"body":        emailToSave.Body,
+				"date":        emailToSave.Date,
+				"in_reply_to": emailToSave.InReplyTo,
+				"replied_to":  emailToSave.RepliedTo,
+				"id_account":  emailToSave.IdAccounts,
+				"attachments": item.kafkaAttachments,
+			}
+
+			emailBytes, _ := json.Marshal(payload)
+			err = useCase.broker.SendMessage(*account.KafkaTopic, emailToSave.ID, emailBytes)
+			if err != nil {
+				log.Printf("[Conta %d] Erro ao publicar email %s no Kafka: %v", account.ID, emailToSave.ID, err)
+			}
 		}
 	}
 

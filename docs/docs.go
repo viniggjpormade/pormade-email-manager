@@ -190,17 +190,7 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "tags": [
-        {
-            "description": "Operações relacionadas a autenticação",
-            "name": "Auth"
-        },
-        {
-            "description": "Operações relacionadas a usuários",
-            "name": "User"
-        }
-    ]
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

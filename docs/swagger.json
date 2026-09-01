@@ -187,15 +187,5 @@
                 }
             }
         }
-    },
-    "tags": [
-        {
-            "description": "Operações relacionadas a autenticação",
-            "name": "Auth"
-        },
-        {
-            "description": "Operações relacionadas a usuários",
-            "name": "User"
-        }
-    ]
+    }
 }
