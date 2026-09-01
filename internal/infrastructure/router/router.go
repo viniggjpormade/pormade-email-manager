@@ -10,7 +10,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	// _ "github.com/viniggj2005/pormade-email-manager/docs"
+	_ "github.com/viniggjpormade/pormade-email-manager/docs"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +29,9 @@ func Logger() gin.HandlerFunc {
 
 func RouterInit(db *gorm.DB) {
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
 	router := gin.Default()
 	router.MaxMultipartMemory = 8388608
 	router.Use(Logger())
@@ -39,7 +42,11 @@ func RouterInit(db *gorm.DB) {
 		ExposeHeaders:    []string{"Content-Length", "Content-Range"},
 		AllowCredentials: true,
 	}))
+
+	// Registra o swagger
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	router.Run((fmt.Sprintf("0.0.0.0:%s", port)))
+	SetupAccountRoutes(router, db)
+
+	router.Run(fmt.Sprintf("0.0.0.0:%s", port))
 }

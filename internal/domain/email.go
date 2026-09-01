@@ -9,6 +9,28 @@ type ConnectInfo struct {
 	Password string
 }
 
+type Email struct {
+	ID          string       `gorm:"type:varchar;primaryKey"`
+	From        string       `gorm:"type:varchar;not null"`
+	To          string       `gorm:"type:varchar;not null"`
+	RepliedTo   *string      `gorm:"type:varchar"`
+	Body        *string      `gorm:"type:text"`
+	Date        time.Time    `gorm:"type:timestamptz"`
+	Subject     string       `gorm:"type:varchar;not null"`
+	InReplyTo   *string      `gorm:"type:varchar"`
+	IdAccounts  int64        `gorm:"column:id_accounts;type:bigint;not null"`
+	Account     Account      `gorm:"foreignKey:IdAccounts"`
+	Attachments []Attachment `gorm:"foreignKey:IdEmails"`
+}
+
+type Attachment struct {
+	ID          string `gorm:"type:uuid;primaryKey"`
+	Filename    string `gorm:"type:varchar;not null"`
+	IdEmails    string `gorm:"column:id_emails;type:varchar;not null"`
+	ContentType string `gorm:"type:varchar;not null"`
+	FileUrl     string `gorm:"type:varchar;not null"`
+}
+
 type EmailDTO struct {
 	SeqNum    uint32       `json:"seq_num"`
 	Uid       uint32       `json:"uid"`
@@ -17,8 +39,10 @@ type EmailDTO struct {
 	Subject   string       `json:"subject"`
 	Date      time.Time    `json:"date"`
 	MessageId string       `json:"message_id"`
+	InReplyTo string       `json:"in_reply_to"`
 	From      []AddressDTO `json:"from"`
 	To        []AddressDTO `json:"to"`
+	ReplyTo   []AddressDTO `json:"reply_to"`
 }
 
 type AddressDTO struct {
@@ -26,7 +50,24 @@ type AddressDTO struct {
 	Email string `json:"email"`
 }
 
-type EmailRepository interface {
+type AttachmentDTO struct {
+	Filename    string
+	ContentType string
+	Data        []byte
+}
+
+type EmailBodyAndAttachments struct {
+	Body        string
+	Attachments []AttachmentDTO
+}
+
+// ImapEmailProvider lida com a busca de e-mails do servidor IMAP
+type ImapEmailProvider interface {
 	GetAllUnreadEmails() ([]EmailDTO, error)
+	GetEmailByUid(uid uint32) (*EmailBodyAndAttachments, error)
 	Disconnect() error
+}
+
+type EmailRepository interface {
+	Create(email *Email) error
 }

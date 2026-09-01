@@ -1,11 +1,126 @@
 basePath: /
+definitions:
+  account.CreateAccountDto:
+    properties:
+      host:
+        type: string
+      kafka_topic:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      user:
+        type: string
+      webhook:
+        type: string
+    required:
+    - host
+    - password
+    - port
+    type: object
+  domain.Account:
+    properties:
+      accessToken:
+        type: string
+      createdAt:
+        type: string
+      emails:
+        items:
+          $ref: '#/definitions/domain.Email'
+        type: array
+      host:
+        type: string
+      id:
+        type: integer
+      kafkaTopic:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      secure:
+        type: boolean
+      user:
+        type: string
+      webhook:
+        type: string
+    type: object
+  domain.Attachment:
+    properties:
+      contentType:
+        type: string
+      fileUrl:
+        type: string
+      filename:
+        type: string
+      id:
+        type: string
+      idEmails:
+        type: string
+    type: object
+  domain.Email:
+    properties:
+      account:
+        $ref: '#/definitions/domain.Account'
+      attachments:
+        items:
+          $ref: '#/definitions/domain.Attachment'
+        type: array
+      body:
+        type: string
+      date:
+        type: string
+      from:
+        type: string
+      id:
+        type: string
+      idAccounts:
+        type: integer
+      inReplyTo:
+        type: string
+      repliedTo:
+        type: string
+      subject:
+        type: string
+      to:
+        type: string
+    type: object
 host: localhost:8000
 info:
   contact: {}
   description: API Para o gerenciamento de emails.
   title: Pormade Email Manager API
   version: "1.0"
-paths: {}
+paths:
+  /accounts:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta de email
+      parameters:
+      - description: Dados da conta
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/account.CreateAccountDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Account'
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Criar conta
+      tags:
+      - Account
 schemes:
 - http
 swagger: "2.0"

@@ -25,3 +25,9 @@ func (r *AccountRepository) FindByToken(token string) (*domain.Account, error) {
 	}
 	return &account, nil
 }
+
+func (r *AccountRepository) FindAll() ([]domain.Account, error) {
+	var accounts []domain.Account
+	err := r.db.Find(&accounts).Error
+	return accounts, err
+}

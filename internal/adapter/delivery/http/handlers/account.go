@@ -27,7 +27,7 @@ func NewAccountHandler(
 // @Produce json
 // @Param account body account.CreateAccountDto true "Dados da conta"
 // @Success 201 {object} domain.Account
-// @Failure 400 {object} object{error=string}
+// @Failure 400 {object} map[string]string "error message"
 // @Router /accounts [post]
 func (h *AccountHandler) Create(c *gin.Context) {
 	var input account.CreateAccountDto

@@ -15,9 +15,11 @@ type Account struct {
 	Webhook     *string   `gorm:"type:varchar"`
 	CreatedAt   time.Time `gorm:"type:timestamptz;default:now()"`
 	AccessToken string    `gorm:"type:varchar;not null"`
+	Emails      []Email   `gorm:"foreignKey:IdAccounts"`
 }
 
 type AccountRepository interface {
 	Create(account *Account) error
 	FindByToken(token string) (*Account, error)
+	FindAll() ([]Account, error)
 }

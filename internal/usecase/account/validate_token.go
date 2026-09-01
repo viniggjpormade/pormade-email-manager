@@ -26,7 +26,6 @@ func (useCase *validateTokenUseCase) Execute(rawToken string) bool {
 	hashedToken := hex.EncodeToString(hash[:])
 
 	_, err := useCase.repository.FindByToken(hashedToken)
-	
-	// Se err for nil, significa que encontrou a conta (token válido)
+
 	return err == nil
 }
