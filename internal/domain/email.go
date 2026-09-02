@@ -9,6 +9,18 @@ type ConnectInfo struct {
 	Password string
 }
 
+type EmailStatus string
+
+const (
+	EmailStatusQueued     EmailStatus = "queued"
+	EmailStatusReceived   EmailStatus = "received"
+	EmailStatusSent       EmailStatus = "sent"
+	EmailStatusDeferred   EmailStatus = "deferred"
+	EmailStatusBounced    EmailStatus = "bounced"
+	EmailStatusBlocked    EmailStatus = "blocked"
+	EmailStatusQuarantine EmailStatus = "quarantine"
+)
+
 type Email struct {
 	ID          string       `gorm:"type:varchar;primaryKey"`
 	From        string       `gorm:"type:varchar;not null"`
@@ -19,6 +31,7 @@ type Email struct {
 	Subject     string       `gorm:"type:varchar;not null"`
 	InReplyTo   *string      `gorm:"type:varchar"`
 	IdAccounts  int64        `gorm:"column:id_accounts;type:bigint;not null"`
+	Status      string       `gorm:"type:email_manager.email_status;not null;default:'received'"`
 	Account     Account      `gorm:"foreignKey:IdAccounts"`
 	Attachments []Attachment `gorm:"foreignKey:IdEmails"`
 }
@@ -61,7 +74,6 @@ type EmailBodyAndAttachments struct {
 	Attachments []AttachmentDTO
 }
 
-// ImapEmailProvider lida com a busca de e-mails do servidor IMAP
 type ImapEmailProvider interface {
 	GetAllUnreadEmails() ([]EmailDTO, error)
 	GetEmailByUid(uid uint32) (*EmailBodyAndAttachments, error)
@@ -70,4 +82,16 @@ type ImapEmailProvider interface {
 
 type EmailRepository interface {
 	Create(email *Email) error
+	Update(email *Email) error
+	GetPendingOutboundEmails() ([]Email, error)
+}
+
+type SendEmailResponse struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}
+
+type OutboundEmailProvider interface {
+	SendEmail(from string, to string, subject string, body string, attachments []AttachmentDTO) (*SendEmailResponse, error)
+	VerifyEmailStatus(id string) (*SendEmailResponse, error)
 }

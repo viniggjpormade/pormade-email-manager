@@ -20,6 +20,8 @@ type Account struct {
 
 type AccountRepository interface {
 	Create(account *Account) error
+	Update(account *Account) error
 	FindByToken(token string) (*Account, error)
+	FindById(id int64) (*Account, error)
 	FindAll() ([]Account, error)
 }

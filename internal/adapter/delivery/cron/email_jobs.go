@@ -11,12 +11,18 @@ import (
 
 type EmailJobs struct {
 	verifyAndSaveInboxUseCase emailUseCase.VerifyAndSaveInboxUseCase
+	syncEmailStatusUseCase    emailUseCase.SyncEmailStatusUseCase
 	accountRepository         domain.AccountRepository
 }
 
-func NewEmailJobs(usecase emailUseCase.VerifyAndSaveInboxUseCase, accountRepo domain.AccountRepository) *EmailJobs {
+func NewEmailJobs(
+	verifyUseCase emailUseCase.VerifyAndSaveInboxUseCase,
+	syncUseCase emailUseCase.SyncEmailStatusUseCase,
+	accountRepo domain.AccountRepository,
+) *EmailJobs {
 	return &EmailJobs{
-		verifyAndSaveInboxUseCase: usecase,
+		verifyAndSaveInboxUseCase: verifyUseCase,
+		syncEmailStatusUseCase:    syncUseCase,
 		accountRepository:         accountRepo,
 	}
 }
@@ -58,5 +64,12 @@ func (job *EmailJobs) RunVerifyAndSaveInbox() {
 		}
 
 		imapProvider.Disconnect()
+	}
+}
+
+func (job *EmailJobs) RunSyncEmailStatus() {
+	err := job.syncEmailStatusUseCase.Execute()
+	if err != nil {
+		log.Printf("[Cron] Erro ao sincronizar status de emails pendentes: %v", err)
 	}
 }

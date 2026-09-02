@@ -4,7 +4,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
 <dbmodel pgmodeler-ver="1.1.3" use-changelog="false" max-obj-count="4"
-	 last-position="2,117" last-zoom="0.75" scene-rect="0,-27,1924.99,1103.8"
+	 last-position="0,143" last-zoom="0.75" scene-rect="0,-27,1924.99,1103.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -63,7 +63,19 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="emails" layers="0" collapse-mode="2" max-obj-count="10" z-value="0">
+<usertype name="email_status" configuration="enumeration">
+	<schema name="email_manager"/>
+	<role name="postgres"/>
+	<enumeration label="queued"/>
+	<enumeration label="received"/>
+	<enumeration label="sent"/>
+	<enumeration label="deferred"/>
+	<enumeration label="bounced"/>
+	<enumeration label="blocked"/>
+	<enumeration label="quarantine"/>
+</usertype>
+
+<table name="emails" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
 	<schema name="email_manager"/>
 	<role name="postgres"/>
 	<position x="940" y="500"/>
@@ -91,6 +103,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="subject">
 		<type name="varchar" length="0"/>
 	</column>
+	<column name="status" not-null="true">
+		<type name="email_manager.email_status" length="0"/>
+	</column>
 	<constraint name="emails_pk" type="pk-constr" table="email_manager.emails">
 		<columns names="id" ref-type="src-columns"/>
 	</constraint>
@@ -102,15 +117,6 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<object name="accounts_fk" index="1"/>
 	</customidxs></table>
 
-<table name="email_webhook_logs" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
-	<schema name="email_manager"/>
-	<role name="postgres"/>
-	<position x="920" y="220"/>
-	<column name="id" not-null="true">
-		<type name="bigserial" length="0"/>
-	</column>
-</table>
-
 <relationship name="accounts_has_many_emails" type="rel1n" layers="0"
 	 src-col-pattern="{sc}_{st}"
 	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
@@ -120,14 +126,14 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 dst-table="email_manager.emails"
 	 src-required="true" dst-required="false"/>
 
-<relationship name="email_webhook_logs_has_one_emails" type="rel11" layers="0"
-	 src-col-pattern="{sc}_{st}"
-	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
-	 src-fk-pattern="{st}_fk"
-	 custom-color="#aa0000"
-	 src-table="email_manager.emails"
-	 dst-table="email_manager.email_webhook_logs"
-	 src-required="true" dst-required="false"/>
+<table name="email_webhook_logs" layers="0" collapse-mode="2" max-obj-count="2" z-value="0">
+	<schema name="email_manager"/>
+	<role name="postgres"/>
+	<position x="920" y="220"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+</table>
 
 <table name="attachments" layers="0" collapse-mode="2" max-obj-count="6" z-value="0">
 	<schema name="email_manager"/>
@@ -163,6 +169,15 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 custom-color="#246578"
 	 src-table="email_manager.emails"
 	 dst-table="email_manager.attachments"
+	 src-required="true" dst-required="false"/>
+
+<relationship name="email_webhook_logs_has_one_emails" type="rel11" layers="0"
+	 src-col-pattern="{sc}_{st}"
+	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
+	 src-fk-pattern="{st}_fk"
+	 custom-color="#aa0000"
+	 src-table="email_manager.emails"
+	 dst-table="email_manager.email_webhook_logs"
 	 src-required="true" dst-required="false"/>
 
 </dbmodel>

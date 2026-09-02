@@ -41,7 +41,7 @@ func (broker *KafkaBroker) ProducerEventLoop() {
 	}
 }
 
-func (broker *KafkaBroker) SendMessage(topic string, key string, message []byte) error {
+func (broker *KafkaBroker) SendEmailMessage(topic string, key string, message []byte) error {
 	err := broker.kafkaProducer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          message,

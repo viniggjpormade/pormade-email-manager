@@ -81,6 +81,8 @@ definitions:
         type: string
       repliedTo:
         type: string
+      status:
+        type: string
       subject:
         type: string
       to:
@@ -121,6 +123,66 @@ paths:
       summary: Criar conta
       tags:
       - Account
+  /emails:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Envia um novo email com suporte a anexos
+      parameters:
+      - description: Email do destinatário
+        in: formData
+        name: to
+        required: true
+        type: string
+      - description: Assunto do e-mail
+        in: formData
+        name: subject
+        required: true
+        type: string
+      - description: Corpo do e-mail (Texto ou HTML)
+        in: formData
+        name: body
+        required: true
+        type: string
+      - collectionFormat: csv
+        description: Arquivos em anexo
+        in: formData
+        items:
+          type: file
+        name: attachments
+        type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: mensagem de sucesso
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Enviar email
+      tags:
+      - Email
 schemes:
 - http
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

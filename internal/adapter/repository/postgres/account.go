@@ -17,9 +17,22 @@ func (r *AccountRepository) Create(account *domain.Account) error {
 	return r.db.Create(account).Error
 }
 
+func (r *AccountRepository) Update(account *domain.Account) error {
+	return r.db.Save(account).Error
+}
+
 func (r *AccountRepository) FindByToken(token string) (*domain.Account, error) {
 	var account domain.Account
 	err := r.db.Where("access_token = ?", token).First(&account).Error
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (r *AccountRepository) FindById(id int64) (*domain.Account, error) {
+	var account domain.Account
+	err := r.db.Where("id = ?", id).First(&account).Error
 	if err != nil {
 		return nil, err
 	}
