@@ -3,6 +3,7 @@ package email
 import (
 	"encoding/json"
 	"log"
+	"os"
 
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
 )
@@ -66,13 +67,8 @@ func (useCase *syncEmailStatusUseCase) processSingleEmail(emailEntity domain.Ema
 }
 
 func (useCase *syncEmailStatusUseCase) notifyKafka(emailEntity domain.Email) {
-	account, err := useCase.accountRepo.FindById(emailEntity.IdAccounts)
-	if err != nil {
-		log.Printf("Erro ao buscar conta %d: %v", emailEntity.IdAccounts, err)
-		return
-	}
-
-	if account.KafkaTopic == nil || *account.KafkaTopic == "" {
+	topic := os.Getenv("KAFKA_UPDATE_STATUS_TOPIC")
+	if topic == "" {
 		return
 	}
 
@@ -82,8 +78,8 @@ func (useCase *syncEmailStatusUseCase) notifyKafka(emailEntity domain.Email) {
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	err = useCase.broker.SendEmailMessage(*account.KafkaTopic, emailEntity.ID, payloadBytes)
+	err := useCase.broker.SendEmailMessage(topic, emailEntity.ID, payloadBytes)
 	if err != nil {
-		log.Printf("Erro ao enviar mensagem pro Kafka no topico %s: %v", *account.KafkaTopic, err)
+		log.Printf("Erro ao enviar mensagem pro Kafka no topico %s: %v", topic, err)
 	}
 }

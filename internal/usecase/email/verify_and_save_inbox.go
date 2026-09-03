@@ -3,6 +3,7 @@ package email
 import (
 	"encoding/json"
 	"log"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
@@ -130,7 +131,8 @@ func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Acco
 }
 
 func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account, item emailPayload) {
-	if account.KafkaTopic == nil || useCase.broker == nil {
+	topic := os.Getenv("KAFKA_SEND_EMAIL_TOPIC")
+	if topic == "" || useCase.broker == nil {
 		return
 	}
 
@@ -148,7 +150,7 @@ func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account,
 	}
 
 	emailBytes, _ := json.Marshal(payload)
-	err := useCase.broker.SendEmailMessage(*account.KafkaTopic, item.email.ID, emailBytes)
+	err := useCase.broker.SendEmailMessage(topic, item.email.ID, emailBytes)
 	if err != nil {
 		log.Printf("[Conta %d] Erro ao publicar email %s no Kafka: %v", account.ID, item.email.ID, err)
 	}
