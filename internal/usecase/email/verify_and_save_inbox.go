@@ -143,7 +143,6 @@ func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account,
 		"date":        item.email.Date,
 		"in_reply_to": item.email.InReplyTo,
 		"replied_to":  item.email.RepliedTo,
-		"id_account":  item.email.IdAccounts,
 		"status":      item.email.Status,
 		"attachments": item.kafkaAttachments,
 	}
