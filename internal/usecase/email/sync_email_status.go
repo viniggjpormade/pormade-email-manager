@@ -3,6 +3,7 @@ package email
 import (
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
 )
@@ -77,9 +78,13 @@ func (useCase *syncEmailStatusUseCase) notifyKafka(emailEntity domain.Email) {
 	}
 	topic := *account.Webhook
 
-	payload := map[string]string{
-		"id":     emailEntity.ID,
-		"status": emailEntity.Status,
+	payload := map[string]interface{}{
+		"event_type": "EMAIL_STATUS_UPDATED",
+		"email_id":   emailEntity.ID,
+		"timestamp":  time.Now().Format(time.RFC3339),
+		"payload": map[string]interface{}{
+			"status": emailEntity.Status,
+		},
 	}
 	payloadBytes, _ := json.Marshal(payload)
 

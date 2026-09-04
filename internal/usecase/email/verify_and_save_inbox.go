@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
@@ -136,7 +137,7 @@ func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account,
 	}
 	topic := *account.KafkaTopic
 
-	payload := map[string]interface{}{
+	payloadContent := map[string]interface{}{
 		"id":          item.email.ID,
 		"subject":     item.email.Subject,
 		"from":        item.email.From,
@@ -147,6 +148,13 @@ func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account,
 		"replied_to":  item.email.RepliedTo,
 		"status":      item.email.Status,
 		"attachments": item.kafkaAttachments,
+	}
+
+	payload := map[string]interface{}{
+		"event_type": "EMAIL_RECEIVED",
+		"email_id":   item.email.ID,
+		"timestamp":  item.email.Date.Format(time.RFC3339),
+		"payload":    payloadContent,
 	}
 
 	emailBytes, _ := json.Marshal(payload)
