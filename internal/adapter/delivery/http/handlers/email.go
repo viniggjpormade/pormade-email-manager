@@ -1,4 +1,4 @@
-﻿package handlers
+package handlers
 
 import (
 	"net/http"
@@ -30,6 +30,7 @@ func NewEmailHandler(
 // @Param to formData string true "Email do destinatário"
 // @Param subject formData string true "Assunto do e-mail"
 // @Param body formData string true "Corpo do e-mail (Texto ou HTML)"
+// @Param inReplyTo formData string false "ID da mensagem que este e-mail responde (opcional)"
 // @Param attachments formData []file false "Arquivos em anexo"
 // @Success 201 {object} map[string]string "mensagem de sucesso"
 // @Failure 400 {object} map[string]string "error message"

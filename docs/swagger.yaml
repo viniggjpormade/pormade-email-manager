@@ -19,6 +19,21 @@ definitions:
     - password
     - port
     type: object
+  account.UpdateAccountDto:
+    properties:
+      host:
+        type: string
+      kafka_topic:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      user:
+        type: string
+      webhook:
+        type: string
+    type: object
   domain.Account:
     properties:
       accessToken:
@@ -123,6 +138,41 @@ paths:
       summary: Criar conta
       tags:
       - Account
+    put:
+      consumes:
+      - application/json
+      description: Atualiza uma conta de email existente
+      parameters:
+      - description: Dados da conta a serem atualizados
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/account.UpdateAccountDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Account'
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Atualizar conta
+      tags:
+      - Account
   /emails:
     post:
       consumes:
@@ -143,6 +193,10 @@ paths:
         in: formData
         name: body
         required: true
+        type: string
+      - description: ID da mensagem que este e-mail responde (opcional)
+        in: formData
+        name: inReplyTo
         type: string
       - collectionFormat: csv
         description: Arquivos em anexo

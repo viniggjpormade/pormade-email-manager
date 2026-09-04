@@ -39,11 +39,13 @@ type externalEmailPayload struct {
 	Text           string                    `json:"text"`
 	Html           string                    `json:"html"`
 	ReplyTo        string                    `json:"replyTo"`
+	InReplyTo      *string                   `json:"inReplyTo,omitempty"`
+	References     []string                  `json:"references,omitempty"`
 	IdempotencyKey string                    `json:"idempotencyKey"`
 	Attachments    []externalEmailAttachment `json:"attachments"`
 }
 
-func (provider *externalEmailProvider) SendEmail(from string, to string, subject string, body string, attachments []domain.AttachmentDTO) (*domain.SendEmailResponse, error) {
+func (provider *externalEmailProvider) SendEmail(from string, to string, subject string, body string, inReplyTo string, attachments []domain.AttachmentDTO) (*domain.SendEmailResponse, error) {
 	baseUrl := os.Getenv("EMAIL_PROVIDER_BASE_URL")
 
 	externalAttachments := make([]externalEmailAttachment, 0)
@@ -67,6 +69,15 @@ func (provider *externalEmailProvider) SendEmail(from string, to string, subject
 		ReplyTo:        from,
 		IdempotencyKey: uuid.New().String(),
 		Attachments:    externalAttachments,
+	}
+
+	if inReplyTo != "" {
+		formattedInReplyTo := inReplyTo
+		if !strings.HasPrefix(formattedInReplyTo, "<") {
+			formattedInReplyTo = "<" + formattedInReplyTo + ">"
+		}
+		payload.InReplyTo = &formattedInReplyTo
+		payload.References = []string{formattedInReplyTo}
 	}
 
 	payloadBytes, err := json.Marshal(payload)

@@ -92,6 +92,6 @@ type SendEmailResponse struct {
 }
 
 type OutboundEmailProvider interface {
-	SendEmail(from string, to string, subject string, body string, attachments []AttachmentDTO) (*SendEmailResponse, error)
+	SendEmail(from string, to string, subject string, body string, inReplyTo string, attachments []AttachmentDTO) (*SendEmailResponse, error)
 	VerifyEmailStatus(id string) (*SendEmailResponse, error)
 }

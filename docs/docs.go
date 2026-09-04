@@ -16,6 +16,61 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/accounts": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Atualiza uma conta de email existente",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Atualizar conta",
+                "parameters": [
+                    {
+                        "description": "Dados da conta a serem atualizados",
+                        "name": "account",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/account.UpdateAccountDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "error message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "Cria uma nova conta de email",
                 "consumes": [
@@ -99,6 +154,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "ID da mensagem que este e-mail responde (opcional)",
+                        "name": "inReplyTo",
+                        "in": "formData"
+                    },
+                    {
                         "type": "array",
                         "items": {
                             "type": "file"
@@ -149,6 +210,29 @@ const docTemplate = `{
                 "password",
                 "port"
             ],
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "kafka_topic": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "webhook": {
+                    "type": "string"
+                }
+            }
+        },
+        "account.UpdateAccountDto": {
+            "type": "object",
             "properties": {
                 "host": {
                     "type": "string"

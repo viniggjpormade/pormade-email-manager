@@ -3,7 +3,7 @@ package email
 import (
 	"encoding/json"
 	"log"
-	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
@@ -88,7 +88,7 @@ func (useCase *verifyAndSaveInboxUseCase) buildEmailEntity(account domain.Accoun
 	}
 
 	return domain.Email{
-		ID:         dto.MessageId,
+		ID:         strings.Trim(dto.MessageId, "<>"),
 		From:       fromEmail,
 		To:         toEmail,
 		Subject:    dto.Subject,
@@ -131,10 +131,10 @@ func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Acco
 }
 
 func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account, item emailPayload) {
-	topic := os.Getenv("KAFKA_SEND_EMAIL_TOPIC")
-	if topic == "" || useCase.broker == nil {
+	if account.KafkaTopic == nil || *account.KafkaTopic == "" || useCase.broker == nil {
 		return
 	}
+	topic := *account.KafkaTopic
 
 	payload := map[string]interface{}{
 		"id":          item.email.ID,

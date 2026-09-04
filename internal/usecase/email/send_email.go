@@ -1,6 +1,7 @@
 package email
 
 import (
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ type SendEmailDTO struct {
 	To          string                 `form:"to" json:"to"`
 	Subject     string                 `form:"subject" json:"subject"`
 	Body        string                 `form:"body" json:"body"`
+	InReplyTo   string                 `form:"inReplyTo" json:"inReplyTo"`
 	Attachments []domain.AttachmentDTO `form:"-" json:"-"`
 }
 
@@ -37,12 +39,12 @@ func NewSendEmailUseCase(
 }
 
 func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmailDTO) error {
-	fromAddress := "no-reply@pormade.com.br"
-	if account.User != nil && *account.User != "" {
-		fromAddress = *account.User
+	fromAddress := os.Getenv("EMAIL_FROM")
+	if fromAddress == "" {
+		fromAddress = "no-reply@pormade.com.br"
 	}
 
-	response, err := useCase.emailProvider.SendEmail(fromAddress, input.To, input.Subject, input.Body, input.Attachments)
+	response, err := useCase.emailProvider.SendEmail(fromAddress, input.To, input.Subject, input.Body, input.InReplyTo, input.Attachments)
 	if err != nil {
 		return err
 	}
@@ -60,6 +62,11 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		}
 	}
 
+	var inReplyTo *string
+	if input.InReplyTo != "" {
+		inReplyTo = &input.InReplyTo
+	}
+
 	emailEntity := domain.Email{
 		ID:          response.ID,
 		To:          input.To,
@@ -68,6 +75,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		Body:        &input.Body,
 		Date:        time.Now(),
 		Status:      response.Status,
+		InReplyTo:   inReplyTo,
 		IdAccounts:  account.ID,
 		Attachments: attachmentsEntities,
 	}
