@@ -8,8 +8,8 @@ import (
 func InitScheduler(emailJobs *cron_adapter.EmailJobs) *cron.Cron {
 	c := cron.New()
 
-	c.AddFunc("*/5 * * * *", emailJobs.RunVerifyAndSaveInbox)
-	c.AddFunc("*/5 * * * *", emailJobs.RunSyncEmailStatus)
+	c.AddFunc("*/1 * * * *", emailJobs.RunVerifyAndSaveInbox)
+	c.AddFunc("*/1 * * * *", emailJobs.RunSyncEmailStatus)
 
 	return c
 }

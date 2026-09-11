@@ -45,11 +45,11 @@ type externalEmailPayload struct {
 	Attachments    []externalEmailAttachment `json:"attachments"`
 }
 
-func (provider *externalEmailProvider) SendEmail(from string, to string, subject string, body string, inReplyTo string, attachments []domain.AttachmentDTO) (*domain.SendEmailResponse, error) {
+func (provider *externalEmailProvider) SendEmail(params domain.EmailParams) (*domain.SendEmailResponse, error) {
 	baseUrl := os.Getenv("EMAIL_PROVIDER_BASE_URL")
 
 	externalAttachments := make([]externalEmailAttachment, 0)
-	for _, attachment := range attachments {
+	for _, attachment := range params.Attachments {
 		extAttachment := externalEmailAttachment{
 			Filename:    attachment.Filename,
 			ContentType: attachment.ContentType,
@@ -59,20 +59,20 @@ func (provider *externalEmailProvider) SendEmail(from string, to string, subject
 	}
 
 	payload := externalEmailPayload{
-		From:           from,
-		To:             []string{to},
+		From:           params.From,
+		To:             params.To,
 		Cc:             []string{},
 		Bcc:            []string{},
-		Subject:        subject,
-		Text:           body,
-		Html:           body,
-		ReplyTo:        from,
+		Subject:        params.Subject,
+		Text:           params.Body,
+		Html:           params.Body,
+		ReplyTo:        params.From,
 		IdempotencyKey: uuid.New().String(),
 		Attachments:    externalAttachments,
 	}
 
-	if inReplyTo != "" {
-		formattedInReplyTo := inReplyTo
+	if params.InReplyTo != nil {
+		formattedInReplyTo := *params.InReplyTo
 		if !strings.HasPrefix(formattedInReplyTo, "<") {
 			formattedInReplyTo = "<" + formattedInReplyTo + ">"
 		}

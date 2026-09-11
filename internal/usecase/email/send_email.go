@@ -1,19 +1,22 @@
 package email
 
 import (
-	"os"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	emailRepo "github.com/viniggjpormade/pormade-email-manager/internal/adapter/repository/email"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
 )
 
 type SendEmailDTO struct {
-	To          string                 `form:"to" json:"to"`
-	Subject     string                 `form:"subject" json:"subject"`
-	Body        string                 `form:"body" json:"body"`
-	InReplyTo   string                 `form:"inReplyTo" json:"inReplyTo"`
-	Attachments []domain.AttachmentDTO `form:"-" json:"-"`
+	To          []string                `form:"to" json:"to"`
+	Subject     string                  `form:"subject" json:"subject"`
+	Body        string                  `form:"body" json:"body"`
+	InReplyTo   *string                 `form:"inReplyTo" json:"inReplyTo"`
+	References  *string                 `form:"references" json:"references"`
+	Attachments []domain.AttachmentsDTO `form:"-" json:"-"`
 }
 
 type SendEmailUseCase interface {
@@ -24,29 +27,64 @@ type sendEmailUseCase struct {
 	repository      domain.EmailRepository
 	emailProvider   domain.OutboundEmailProvider
 	storageProvider domain.StorageProvider
+	broker          domain.MessageBroker
 }
 
 func NewSendEmailUseCase(
 	repository domain.EmailRepository,
 	emailProvider domain.OutboundEmailProvider,
 	storageProvider domain.StorageProvider,
+	broker domain.MessageBroker,
 ) SendEmailUseCase {
 	return &sendEmailUseCase{
 		repository:      repository,
 		emailProvider:   emailProvider,
 		storageProvider: storageProvider,
+		broker:          broker,
 	}
 }
 
 func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmailDTO) error {
-	fromAddress := os.Getenv("EMAIL_FROM")
-	if fromAddress == "" {
-		fromAddress = "no-reply@pormade.com.br"
-	}
 
-	response, err := useCase.emailProvider.SendEmail(fromAddress, input.To, input.Subject, input.Body, input.InReplyTo, input.Attachments)
-	if err != nil {
-		return err
+	params := domain.EmailParams{
+		From:        *account.User,
+		To:          input.To,
+		Subject:     input.Subject,
+		Body:        input.Body,
+		InReplyTo:   input.InReplyTo,
+		Attachments: input.Attachments,
+	}
+	var response *domain.SendEmailResponse
+	var err error
+
+	if account.SmtpHost != nil && account.SmtpPassword != nil && account.SmtpPort != nil {
+		username := ""
+		if account.User != nil {
+			username = *account.User
+		}
+
+		connectInfo := domain.ConnectInfo{
+			SMTPHost:     account.SmtpHost,
+			SMTPPort:     account.SmtpPort,
+			SMTPPassword: account.SmtpPassword,
+			Username:     username,
+		}
+
+		var smtpProvider *emailRepo.SmtpRepository
+		smtpProvider, err = emailRepo.NewSmtpRepository(connectInfo)
+		if err != nil {
+			return fmt.Errorf("erro ao iniciar SMTP: %w", err)
+		}
+
+		response, err = smtpProvider.SendEmail(params)
+		if err != nil {
+			return err
+		}
+	} else {
+		response, err = useCase.emailProvider.SendEmail(params)
+		if err != nil {
+			return err
+		}
 	}
 
 	var attachmentsEntities []domain.Attachment
@@ -63,14 +101,14 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 	}
 
 	var inReplyTo *string
-	if input.InReplyTo != "" {
-		inReplyTo = &input.InReplyTo
+	if input.InReplyTo != nil {
+		inReplyTo = input.InReplyTo
 	}
 
 	emailEntity := domain.Email{
 		ID:          response.ID,
 		To:          input.To,
-		From:        fromAddress,
+		From:        *account.User,
 		Subject:     input.Subject,
 		Body:        &input.Body,
 		Date:        time.Now(),
@@ -83,6 +121,39 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 	err = useCase.repository.Create(&emailEntity)
 	if err != nil {
 		return err
+	}
+
+	if account.KafkaTopic != nil && *account.KafkaTopic != "" {
+		var kafkaAttachments []map[string]interface{}
+		for _, att := range attachmentsEntities {
+			kafkaAttachments = append(kafkaAttachments, map[string]interface{}{
+				"id":           att.ID,
+				"filename":     att.Filename,
+				"content_type": att.ContentType,
+			})
+		}
+
+		payloadContent := map[string]interface{}{
+			"id":          emailEntity.ID,
+			"subject":     emailEntity.Subject,
+			"from":        emailEntity.From,
+			"to":          emailEntity.To,
+			"body":        *emailEntity.Body,
+			"date":        emailEntity.Date.Format(time.RFC3339),
+			"in_reply_to": emailEntity.InReplyTo,
+			"replied_to":  emailEntity.RepliedTo,
+			"status":      emailEntity.Status,
+			"attachments": kafkaAttachments,
+		}
+
+		payload := map[string]interface{}{
+			"event_type": "EMAIL_QUEUED",
+			"email_id":   emailEntity.ID,
+			"timestamp":  time.Now().Format(time.RFC3339),
+			"payload":    payloadContent,
+		}
+		payloadBytes, _ := json.Marshal(payload)
+		_ = useCase.broker.SendEmailMessage(*account.KafkaTopic, emailEntity.ID, payloadBytes)
 	}
 
 	return nil

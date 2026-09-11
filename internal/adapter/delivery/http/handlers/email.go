@@ -60,7 +60,7 @@ func (handler *EmailHandler) SendEmail(context *gin.Context) {
 				continue
 			}
 
-			input.Attachments = append(input.Attachments, domain.AttachmentDTO{
+			input.Attachments = append(input.Attachments, domain.AttachmentsDTO{
 				Filename:    file.Filename,
 				ContentType: file.Header.Get("Content-Type"),
 				Data:        fileBytes,

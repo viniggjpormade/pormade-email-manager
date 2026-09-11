@@ -11,12 +11,15 @@ import (
 )
 
 type CreateAccountDto struct {
-	Host       string `json:"host" form:"host" binding:"required"`
-	Port       string `json:"port" form:"port" binding:"required"`
-	User       string `json:"user" form:"user"`
-	Password   string `json:"password" form:"password" binding:"required"`
-	KafkaTopic string `json:"kafka_topic" form:"kafka_topic"`
-	Webhook    string `json:"webhook" form:"webhook"`
+	ImapHost     string  `json:"imap_host" form:"imap_host" binding:"required"`
+	ImapPort     string  `json:"imap_port" form:"imap_port" binding:"required"`
+	User         string  `json:"user" form:"user"`
+	ImapPassword string  `json:"imap_password" form:"imap_password" binding:"required"`
+	KafkaTopic   string  `json:"kafka_topic" form:"kafka_topic"`
+	Webhook      string  `json:"webhook" form:"webhook"`
+	SmtpPort     *string `json:"smtp_port" form:"smtp_port"`
+	SmtpHost     *string `json:"smtp_host" form:"smtp_host"`
+	SmtpPassword *string `json:"smtp_password" form:"smtp_password"`
 }
 
 type CreateUseCase interface {
@@ -51,12 +54,15 @@ func (useCase *createAccountUseCase) Execute(input CreateAccountDto) (*domain.Ac
 	hashedToken := hex.EncodeToString(hash[:])
 
 	account := &domain.Account{
-		Host:        input.Host,
-		Port:        input.Port,
-		Password:    input.Password,
-		AccessToken: hashedToken,
+		ImapHost:     input.ImapHost,
+		ImapPort:     input.ImapPort,
+		ImapPassword: input.ImapPassword,
+		SmtpHost:     input.SmtpHost,
+		SmtpPort:     input.SmtpPort,
+		SmtpPassword: input.SmtpPassword,
+		AccessToken:  hashedToken,
 	}
-	
+
 	hasKafka := input.KafkaTopic != ""
 	hasWebhook := input.Webhook != ""
 	if hasKafka == hasWebhook {

@@ -3,7 +3,6 @@ package email
 import (
 	"encoding/json"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -88,21 +87,27 @@ func (useCase *verifyAndSaveInboxUseCase) buildEmailEntity(account domain.Accoun
 		repliedTo = &dto.ReplyTo[0].Email
 	}
 
+	var references *string
+	if dto.References != "" {
+		references = &dto.References
+	}
+
 	return domain.Email{
-		ID:         strings.Trim(dto.MessageId, "<>"),
+		ID:         dto.MessageId,
 		From:       fromEmail,
-		To:         toEmail,
+		To:         []string{toEmail},
 		Subject:    dto.Subject,
 		Date:       dto.Date,
 		Body:       &body,
 		InReplyTo:  inReplyTo,
+		References: references,
 		RepliedTo:  repliedTo,
 		IdAccounts: account.ID,
 		Status:     string(domain.EmailStatusReceived),
 	}
 }
 
-func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Account, emailEntity *domain.Email, attachments []domain.AttachmentDTO) []map[string]interface{} {
+func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Account, emailEntity *domain.Email, attachments []domain.AttachmentsDTO) []map[string]interface{} {
 	var kafkaAttachments []map[string]interface{}
 
 	for _, att := range attachments {

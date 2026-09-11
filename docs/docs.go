@@ -206,21 +206,30 @@ const docTemplate = `{
         "account.CreateAccountDto": {
             "type": "object",
             "required": [
-                "host",
-                "password",
-                "port"
+                "imap_host",
+                "imap_password",
+                "imap_port"
             ],
             "properties": {
-                "host": {
+                "imap_host": {
+                    "type": "string"
+                },
+                "imap_password": {
+                    "type": "string"
+                },
+                "imap_port": {
                     "type": "string"
                 },
                 "kafka_topic": {
                     "type": "string"
                 },
-                "password": {
+                "smtp_host": {
                     "type": "string"
                 },
-                "port": {
+                "smtp_password": {
+                    "type": "string"
+                },
+                "smtp_port": {
                     "type": "string"
                 },
                 "user": {
@@ -234,16 +243,25 @@ const docTemplate = `{
         "account.UpdateAccountDto": {
             "type": "object",
             "properties": {
-                "host": {
+                "imap_host": {
+                    "type": "string"
+                },
+                "imap_password": {
+                    "type": "string"
+                },
+                "imap_port": {
                     "type": "string"
                 },
                 "kafka_topic": {
                     "type": "string"
                 },
-                "password": {
+                "smtp_host": {
                     "type": "string"
                 },
-                "port": {
+                "smtp_password": {
+                    "type": "string"
+                },
+                "smtp_port": {
                     "type": "string"
                 },
                 "user": {
@@ -269,23 +287,32 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.Email"
                     }
                 },
-                "host": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "integer"
+                },
+                "imapHost": {
+                    "type": "string"
+                },
+                "imapPassword": {
+                    "type": "string"
+                },
+                "imapPort": {
+                    "type": "string"
                 },
                 "kafkaTopic": {
                     "type": "string"
                 },
-                "password": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "string"
-                },
                 "secure": {
                     "type": "boolean"
+                },
+                "smtpHost": {
+                    "type": "string"
+                },
+                "smtpPassword": {
+                    "type": "string"
+                },
+                "smtpPort": {
+                    "type": "string"
                 },
                 "user": {
                     "type": "string"
@@ -345,6 +372,9 @@ const docTemplate = `{
                 "inReplyTo": {
                     "type": "string"
                 },
+                "references": {
+                    "type": "string"
+                },
                 "repliedTo": {
                     "type": "string"
                 },
@@ -355,7 +385,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "to": {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         }

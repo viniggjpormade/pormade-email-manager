@@ -35,7 +35,7 @@ func (job *EmailJobs) RunVerifyAndSaveInbox() {
 	}
 
 	for _, acc := range accounts {
-		port, _ := strconv.Atoi(acc.Port)
+		port, _ := strconv.Atoi(acc.ImapPort)
 		if port == 0 {
 			port = 993
 		}
@@ -46,15 +46,15 @@ func (job *EmailJobs) RunVerifyAndSaveInbox() {
 		}
 
 		connectInfo := domain.ConnectInfo{
-			Address:  acc.Host,
-			Port:     port,
-			Username: user,
-			Password: acc.Password,
+			IMAPHost:     acc.ImapHost,
+			IMAPPort:     port,
+			Username:     user,
+			IMAPPassword: acc.ImapPassword,
 		}
 
 		imapProvider, err := emailRepository.NewImapRepository(connectInfo)
 		if err != nil {
-			log.Printf("[Conta %d] Erro ao conectar no IMAP (%s): %v", acc.ID, acc.Host, err)
+			log.Printf("[Conta %d] Erro ao conectar no IMAP (%s): %v", acc.ID, acc.ImapHost, err)
 			continue
 		}
 

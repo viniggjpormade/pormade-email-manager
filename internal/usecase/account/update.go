@@ -5,12 +5,15 @@ import (
 )
 
 type UpdateAccountDto struct {
-	Host       *string `json:"host" form:"host"`
-	Port       *string `json:"port" form:"port"`
-	User       *string `json:"user" form:"user"`
-	Password   *string `json:"password" form:"password"`
-	KafkaTopic *string `json:"kafka_topic" form:"kafka_topic"`
-	Webhook    *string `json:"webhook" form:"webhook"`
+	ImapHost     *string `json:"imap_host" form:"imap_host"`
+	ImapPort     *string `json:"imap_port" form:"imap_port"`
+	User         *string `json:"user" form:"user"`
+	ImapPassword *string `json:"imap_password" form:"imap_password"`
+	KafkaTopic   *string `json:"kafka_topic" form:"kafka_topic"`
+	Webhook      *string `json:"webhook" form:"webhook"`
+	SmtpPort     *string `json:"smtp_port" form:"smtp_port"`
+	SmtpHost     *string `json:"smtp_host" form:"smtp_host"`
+	SmtpPassword *string `json:"smtp_password" form:"smtp_password"`
 }
 
 type UpdateUseCase interface {
@@ -28,17 +31,26 @@ func NewUpdateUseCase(repository domain.AccountRepository) UpdateUseCase {
 }
 
 func (useCase *updateUseCase) Execute(account domain.Account, input UpdateAccountDto) (*domain.Account, error) {
-	if input.Host != nil {
-		account.Host = *input.Host
+	if input.ImapHost != nil {
+		account.ImapHost = *input.ImapHost
 	}
-	if input.Port != nil {
-		account.Port = *input.Port
+	if input.ImapPort != nil {
+		account.ImapPort = *input.ImapPort
 	}
 	if input.User != nil {
 		account.User = input.User
 	}
-	if input.Password != nil {
-		account.Password = *input.Password
+	if input.ImapPassword != nil {
+		account.ImapPassword = *input.ImapPassword
+	}
+	if input.SmtpHost != nil {
+		account.SmtpHost = input.SmtpHost
+	}
+	if input.SmtpPort != nil {
+		account.SmtpPort = input.SmtpPort
+	}
+	if input.SmtpPassword != nil {
+		account.SmtpPassword = input.SmtpPassword
 	}
 	if input.KafkaTopic != nil {
 		account.KafkaTopic = input.KafkaTopic

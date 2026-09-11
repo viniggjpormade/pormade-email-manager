@@ -8,9 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-
 	_ "github.com/viniggjpormade/pormade-email-manager/docs"
-	"github.com/viniggjpormade/pormade-email-manager/internal/adapter/delivery/http/handlers"
 )
 
 func Logger() gin.HandlerFunc {
@@ -26,11 +24,7 @@ func Logger() gin.HandlerFunc {
 	}
 }
 
-func NewRouter(
-	accountHandler *handlers.AccountHandler,
-	emailHandler *handlers.EmailHandler,
-	authMiddleware gin.HandlerFunc,
-) *gin.Engine {
+func NewRouter() *gin.Engine {
 	router := gin.Default()
 	router.MaxMultipartMemory = 8388608
 	router.Use(Logger())
@@ -43,17 +37,6 @@ func NewRouter(
 	}))
 
 	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-	accountApi := router.Group("/accounts")
-	{
-		accountApi.POST("", accountHandler.Create)
-		accountApi.PUT("", authMiddleware, accountHandler.Update)
-	}
-
-	emailApi := router.Group("/emails")
-	{
-		emailApi.POST("", authMiddleware, emailHandler.SendEmail)
-	}
 
 	return router
 }

@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	netmail "net/mail"
 	"strings"
 
 	"github.com/emersion/go-imap"
@@ -17,12 +19,12 @@ type ImapRepository struct {
 }
 
 func NewImapRepository(connectInfo domain.ConnectInfo) (*ImapRepository, error) {
-	imapClient, err := client.DialTLS(fmt.Sprintf("%s:%d", connectInfo.Address, connectInfo.Port), nil)
+	imapClient, err := client.DialTLS(fmt.Sprintf("%s:%d", connectInfo.IMAPHost, connectInfo.IMAPPort), nil)
 	if err != nil {
 		return nil, fmt.Errorf("erro na conexão: %v", err)
 	}
 
-	if err := imapClient.Login(connectInfo.Username, connectInfo.Password); err != nil {
+	if err := imapClient.Login(connectInfo.Username, connectInfo.IMAPPassword); err != nil {
 		return nil, fmt.Errorf("erro no login: %v", err)
 	}
 
@@ -39,20 +41,21 @@ func (repository *ImapRepository) GetAllUnreadEmails() ([]domain.EmailDTO, error
 
 	criteria := imap.NewSearchCriteria()
 	criteria.WithoutFlags = []string{imap.SeenFlag}
-	ids, err := repository.imapClient.UidSearch(criteria)
+	indexes, err := repository.imapClient.UidSearch(criteria)
 	if err != nil {
 		return nil, fmt.Errorf("erro na busca: %v", err)
 	}
 
-	if len(ids) == 0 {
+	if len(indexes) == 0 {
 		return []domain.EmailDTO{}, nil
 	}
 
 	seqset := new(imap.SeqSet)
-	seqset.AddNum(ids...)
+	seqset.AddNum(indexes...)
 
-	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid, imap.FetchFlags}
-	messages := make(chan *imap.Message, len(ids))
+	section := &imap.BodySectionName{BodyPartName: imap.BodyPartName{Specifier: imap.HeaderSpecifier, Fields: []string{"REFERENCES"}}, Peek: true}
+	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid, imap.FetchFlags, section.FetchItem()}
+	messages := make(chan *imap.Message, len(indexes))
 	done := make(chan error, 1)
 
 	go func() {
@@ -60,9 +63,9 @@ func (repository *ImapRepository) GetAllUnreadEmails() ([]domain.EmailDTO, error
 	}()
 
 	var result []domain.EmailDTO
-	for msg := range messages {
-		if msg.Envelope != nil {
-			result = append(result, ParseMessageToDTO(msg))
+	for message := range messages {
+		if message.Envelope != nil {
+			result = append(result, ParseMessageToDTO(message))
 		}
 	}
 
@@ -86,63 +89,63 @@ func (repository *ImapRepository) GetEmailByUid(uid uint32) (*domain.EmailBodyAn
 		done <- repository.imapClient.UidFetch(seqset, items, messages)
 	}()
 
-	var fullMsg *imap.Message
-	for msg := range messages {
-		fullMsg = msg
+	var fullMessage *imap.Message
+	for message := range messages {
+		fullMessage = message
 	}
 
 	if err := <-done; err != nil {
 		return nil, fmt.Errorf("erro ao buscar mensagem pelo UID: %w", err)
 	}
-	if fullMsg == nil {
+	if fullMessage == nil {
 		return nil, fmt.Errorf("mensagem não encontrada")
 	}
 
-	r := fullMsg.GetBody(section)
-	if r == nil {
+	read := fullMessage.GetBody(section)
+	if read == nil {
 		return nil, fmt.Errorf("corpo da mensagem não encontrado")
 	}
 
-	mr, err := mail.CreateReader(r)
+	mailReader, err := mail.CreateReader(read)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar leitor MIME: %w", err)
 	}
 
 	var htmlBody string
 	var textBody string
-	var attachments []domain.AttachmentDTO
+	var attachments []domain.AttachmentsDTO
 
 	for {
-		p, err := mr.NextPart()
+		part, err := mailReader.NextPart()
 		if err == io.EOF {
 			break
 		} else if err != nil {
 			return nil, fmt.Errorf("erro ao ler parte da mensagem: %w", err)
 		}
 
-		switch h := p.Header.(type) {
+		switch header := part.Header.(type) {
 		case *mail.InlineHeader:
-			contentType, _, _ := h.ContentType()
-			b, err := io.ReadAll(p.Body)
+			contentType, _, _ := header.ContentType()
+			body, err := io.ReadAll(part.Body)
 			if err != nil {
 				return nil, fmt.Errorf("erro ao ler corpo da parte inline: %w", err)
 			}
 			if strings.EqualFold(contentType, "text/html") {
-				htmlBody = string(b)
+				htmlBody = string(body)
 			} else if strings.EqualFold(contentType, "text/plain") && textBody == "" {
-				textBody = string(b)
+				textBody = string(body)
 			}
 		case *mail.AttachmentHeader:
-			filename, _ := h.Filename()
-			contentType, _, _ := h.ContentType()
-			b, err := io.ReadAll(p.Body)
+			filename, _ := header.Filename()
+			contentType, _, _ := header.ContentType()
+			body, err := io.ReadAll(part.Body)
 			if err != nil {
 				return nil, fmt.Errorf("erro ao ler corpo do anexo: %w", err)
 			}
-			attachments = append(attachments, domain.AttachmentDTO{
+			attachments = append(attachments, domain.AttachmentsDTO{
 				Filename:    filename,
 				ContentType: contentType,
-				Data:        b,
+				Data:        body,
 			})
 		}
 	}
@@ -162,13 +165,13 @@ func (repository *ImapRepository) Disconnect() error {
 	return repository.imapClient.Logout()
 }
 
-func mapAddresses(addrs []*imap.Address) []domain.AddressDTO {
+func mapAddresses(addresses []*imap.Address) []domain.AddressDTO {
 	var result []domain.AddressDTO
-	for _, addr := range addrs {
-		if addr != nil {
-			email := fmt.Sprintf("%s@%s", addr.MailboxName, addr.HostName)
+	for _, address := range addresses {
+		if address != nil {
+			email := fmt.Sprintf("%s@%s", address.MailboxName, address.HostName)
 			result = append(result, domain.AddressDTO{
-				Name:  addr.PersonalName,
+				Name:  address.PersonalName,
 				Email: email,
 			})
 		}
@@ -176,22 +179,34 @@ func mapAddresses(addrs []*imap.Address) []domain.AddressDTO {
 	return result
 }
 
-func ParseMessageToDTO(msg *imap.Message) domain.EmailDTO {
+func ParseMessageToDTO(message *imap.Message) domain.EmailDTO {
 	dto := domain.EmailDTO{
-		SeqNum: msg.SeqNum,
-		Uid:    msg.Uid,
-		Size:   msg.Size,
-		Flags:  msg.Flags,
+		SeqNum: message.SeqNum,
+		Uid:    message.Uid,
+		Size:   message.Size,
+		Flags:  message.Flags,
 	}
 
-	if msg.Envelope != nil {
-		dto.Subject = msg.Envelope.Subject
-		dto.Date = msg.Envelope.Date
-		dto.MessageId = msg.Envelope.MessageId
-		dto.InReplyTo = msg.Envelope.InReplyTo
-		dto.From = mapAddresses(msg.Envelope.From)
-		dto.To = mapAddresses(msg.Envelope.To)
-		dto.ReplyTo = mapAddresses(msg.Envelope.ReplyTo)
+	if message.Envelope != nil {
+		dto.Subject = message.Envelope.Subject
+		dto.Date = message.Envelope.Date
+		dto.MessageId = message.Envelope.MessageId
+		dto.InReplyTo = message.Envelope.InReplyTo
+		dto.From = mapAddresses(message.Envelope.From)
+		dto.To = mapAddresses(message.Envelope.To)
+		dto.ReplyTo = mapAddresses(message.Envelope.ReplyTo)
+	}
+
+	for sectionName, body := range message.Body {
+		if sectionName.Specifier == imap.HeaderSpecifier {
+			b, err := io.ReadAll(body)
+			if err == nil {
+				msg, err := netmail.ReadMessage(bytes.NewReader(b))
+				if err == nil && msg != nil {
+					dto.References = msg.Header.Get("References")
+				}
+			}
+		}
 	}
 
 	return dto

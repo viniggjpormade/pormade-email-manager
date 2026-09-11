@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -34,7 +36,12 @@ func DBConnect() *gorm.DB {
 	}
 
 	if autoMigrate {
-		db.AutoMigrate()
+		db.AutoMigrate(
+			&domain.Account{},
+			&domain.Email{},
+			&domain.Attachment{},
+			&domain.EmailWebhookLog{},
+		)
 	}
 	return db
 }
