@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -38,10 +39,10 @@ func NewSmtpRepository(connectInfo domain.ConnectInfo) (*SmtpRepository, error) 
 		return nil, fmt.Errorf("a porta do smtp não pode ser vazia")
 	}
 	client := smtpClient{
-		Host:     *connectInfo.SMTPHost,
-		Password: *connectInfo.SMTPPassword,
-		Port:     *connectInfo.SMTPPort,
-		Username: connectInfo.Username,
+		Host:     strings.TrimSpace(*connectInfo.SMTPHost),
+		Password: strings.TrimSpace(*connectInfo.SMTPPassword),
+		Port:     strings.TrimSpace(*connectInfo.SMTPPort),
+		Username: strings.TrimSpace(connectInfo.Username),
 	}
 
 	return &SmtpRepository{
@@ -188,9 +189,61 @@ func (repository *SmtpRepository) SendEmail(params domain.EmailParams) (*domain.
 
 	messageId, emailBody := buildEmail(params, attachments)
 
+	addr := repository.smtpClient.Host + ":" + repository.smtpClient.Port
 	auth := smtp.PlainAuth("", repository.smtpClient.Username, repository.smtpClient.Password, repository.smtpClient.Host)
-	err = smtp.SendMail(repository.smtpClient.Host+":"+repository.smtpClient.Port, auth, params.From, params.To, emailBody)
+
+	var client *smtp.Client
+	var errSmtp error
+
+	if repository.smtpClient.Port == "465" {
+		tlsconfig := &tls.Config{
+			InsecureSkipVerify: true,
+			ServerName:         repository.smtpClient.Host,
+		}
+		conn, errConn := tls.Dial("tcp", addr, tlsconfig)
+		if errConn != nil {
+			return nil, fmt.Errorf("erro no dial TLS (Porta 465): %w", errConn)
+		}
+		client, errSmtp = smtp.NewClient(conn, repository.smtpClient.Host)
+	} else {
+		client, errSmtp = smtp.Dial(addr)
+		if errSmtp == nil {
+			tlsconfig := &tls.Config{
+				InsecureSkipVerify: true,
+				ServerName:         repository.smtpClient.Host,
+			}
+			if ok, _ := client.Extension("STARTTLS"); ok {
+				client.StartTLS(tlsconfig)
+			}
+		}
+	}
+
+	if errSmtp != nil {
+		return nil, fmt.Errorf("erro ao conectar no SMTP: %w", errSmtp)
+	}
+	defer client.Quit()
+
+	if err = client.Auth(auth); err != nil {
+		return nil, fmt.Errorf("erro na autenticação SMTP: %w", err)
+	}
+
+	if err = client.Mail(params.From); err != nil {
+		return nil, fmt.Errorf("erro no Mail From: %w", err)
+	}
+	for _, to := range params.To {
+		if err = client.Rcpt(to); err != nil {
+			return nil, fmt.Errorf("erro no Rcpt To: %w", err)
+		}
+	}
+
+	writer, err := client.Data()
 	if err != nil {
+		return nil, fmt.Errorf("erro ao iniciar Data: %w", err)
+	}
+	if _, err = writer.Write(emailBody); err != nil {
+		return nil, fmt.Errorf("erro ao escrever corpo do e-mail: %w", err)
+	}
+	if err = writer.Close(); err != nil {
 		return nil, fmt.Errorf("erro ao enviar o e-mail: %w", err)
 	}
 	response := domain.SendEmailResponse{

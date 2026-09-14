@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,7 +64,7 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 			continue
 		}
 
-		useCase.publishToKafka(account, item)
+		useCase.publishEvent(account, item)
 	}
 
 	return nil
@@ -136,11 +138,10 @@ func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Acco
 	return kafkaAttachments
 }
 
-func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account, item emailPayload) {
-	if account.KafkaTopic == nil || *account.KafkaTopic == "" || useCase.broker == nil {
+func (useCase *verifyAndSaveInboxUseCase) publishEvent(account domain.Account, item emailPayload) {
+	if (account.KafkaTopic == nil || *account.KafkaTopic == "") && (account.Webhook == nil || *account.Webhook == "") {
 		return
 	}
-	topic := *account.KafkaTopic
 
 	payloadContent := map[string]interface{}{
 		"id":          item.email.ID,
@@ -163,8 +164,21 @@ func (useCase *verifyAndSaveInboxUseCase) publishToKafka(account domain.Account,
 	}
 
 	emailBytes, _ := json.Marshal(payload)
-	err := useCase.broker.SendEmailMessage(topic, item.email.ID, emailBytes)
-	if err != nil {
-		log.Printf("[Conta %d] Erro ao publicar email %s no Kafka: %v", account.ID, item.email.ID, err)
+
+	if account.KafkaTopic != nil && *account.KafkaTopic != "" && useCase.broker != nil {
+		err := useCase.broker.SendEmailMessage(*account.KafkaTopic, item.email.ID, emailBytes)
+		if err != nil {
+			log.Printf("[Conta %d] Erro ao publicar email %s no Kafka: %v", account.ID, item.email.ID, err)
+		}
+	} else if account.Webhook != nil && *account.Webhook != "" {
+		go func(url string, data []byte) {
+			req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+			if err != nil {
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			_, _ = client.Do(req)
+		}(*account.Webhook, emailBytes)
 	}
 }
