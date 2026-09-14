@@ -1,7 +1,6 @@
 package email
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +19,7 @@ type SendEmailDTO struct {
 
 type SendEmailUseCase interface {
 	Execute(account domain.Account, input SendEmailDTO) error
+	ProcessQueuedEmails() error
 }
 
 type sendEmailUseCase struct {
@@ -27,6 +27,7 @@ type sendEmailUseCase struct {
 	emailProvider    domain.OutboundEmailProvider
 	storageProvider  domain.StorageProvider
 	publishEventCase PublishEventUseCase
+	semaphore        chan struct{}
 }
 
 func NewSendEmailUseCase(
@@ -40,10 +41,58 @@ func NewSendEmailUseCase(
 		emailProvider:    emailProvider,
 		storageProvider:  storageProvider,
 		publishEventCase: publishEventCase,
+		semaphore:        make(chan struct{}, 10),
 	}
 }
 
 func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmailDTO) error {
+	emailId := uuid.New().String()
+
+	var attachmentsEntities []domain.Attachment
+	var eventAttachments []map[string]interface{}
+
+	for _, attachmentDTO := range input.Attachments {
+		fileUrl, err := useCase.storageProvider.Upload(attachmentDTO.Filename, attachmentDTO.Data)
+		if err == nil {
+			attachmentId := uuid.New().String()
+			attachmentsEntities = append(attachmentsEntities, domain.Attachment{
+				ID:          attachmentId,
+				Filename:    attachmentDTO.Filename,
+				ContentType: attachmentDTO.ContentType,
+				FileUrl:     fileUrl,
+			})
+			eventAttachments = append(eventAttachments, map[string]interface{}{
+				"id":           attachmentId,
+				"filename":     attachmentDTO.Filename,
+				"content_type": attachmentDTO.ContentType,
+			})
+		}
+	}
+
+	var inReplyTo *string
+	if input.InReplyTo != nil {
+		inReplyTo = input.InReplyTo
+	}
+
+	emailEntity := domain.Email{
+		ID:          emailId,
+		To:          input.To,
+		From:        *account.User,
+		Subject:     input.Subject,
+		Body:        &input.Body,
+		Date:        time.Now(),
+		Status:      string(domain.EmailStatusQueued),
+		InReplyTo:   inReplyTo,
+		IdAccounts:  account.ID,
+		Attachments: attachmentsEntities,
+	}
+
+	err := useCase.repository.Create(&emailEntity)
+	if err != nil {
+		return err
+	}
+
+	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_QUEUED", eventAttachments)
 
 	params := domain.EmailParams{
 		From:        *account.User,
@@ -54,6 +103,16 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		References:  input.References,
 		Attachments: input.Attachments,
 	}
+
+	go useCase.processSend(emailEntity, params, account)
+
+	return nil
+}
+
+func (useCase *sendEmailUseCase) processSend(emailEntity domain.Email, params domain.EmailParams, account domain.Account) {
+	useCase.semaphore <- struct{}{}
+	defer func() { <-useCase.semaphore }()
+
 	var response *domain.SendEmailResponse
 	var err error
 
@@ -72,67 +131,53 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 
 		var smtpProvider *emailRepo.SmtpRepository
 		smtpProvider, err = emailRepo.NewSmtpRepository(connectInfo)
-		if err != nil {
-			return fmt.Errorf("erro ao iniciar SMTP: %w", err)
-		}
-
-		response, err = smtpProvider.SendEmail(params)
-		if err != nil {
-			return err
+		if err == nil {
+			response, err = smtpProvider.SendEmail(params)
 		}
 	} else {
 		response, err = useCase.emailProvider.SendEmail(params)
-		if err != nil {
-			return err
+	}
+
+	if err != nil {
+		emailEntity.Status = string(domain.EmailStatusDeferred)
+	} else {
+		emailEntity.Status = string(domain.EmailStatusSent)
+		if response != nil && response.ID != "" {
+			emailEntity.References = &response.ID
 		}
 	}
 
-	var attachmentsEntities []domain.Attachment
-	for _, attachmentDTO := range input.Attachments {
-		fileUrl, err := useCase.storageProvider.Upload(attachmentDTO.Filename, attachmentDTO.Data)
-		if err == nil {
-			attachmentsEntities = append(attachmentsEntities, domain.Attachment{
-				ID:          uuid.New().String(),
-				Filename:    attachmentDTO.Filename,
-				ContentType: attachmentDTO.ContentType,
-				FileUrl:     fileUrl,
-			})
-		}
-	}
+	useCase.repository.Update(&emailEntity)
 
-	var inReplyTo *string
-	if input.InReplyTo != nil {
-		inReplyTo = input.InReplyTo
-	}
+	statusPayload := []map[string]interface{}{}
+	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_STATUS_UPDATED", statusPayload)
+}
 
-	emailEntity := domain.Email{
-		ID:          response.ID,
-		To:          input.To,
-		From:        *account.User,
-		Subject:     input.Subject,
-		Body:        &input.Body,
-		Date:        time.Now(),
-		Status:      response.Status,
-		InReplyTo:   inReplyTo,
-		IdAccounts:  account.ID,
-		Attachments: attachmentsEntities,
-	}
-
-	err = useCase.repository.Create(&emailEntity)
+func (useCase *sendEmailUseCase) ProcessQueuedEmails() error {
+	queuedEmails, err := useCase.repository.GetQueuedEmails()
 	if err != nil {
 		return err
 	}
 
-	var eventAttachments []map[string]interface{}
-	for _, attachment := range attachmentsEntities {
-		eventAttachments = append(eventAttachments, map[string]interface{}{
-			"id":           attachment.ID,
-			"filename":     attachment.Filename,
-			"content_type": attachment.ContentType,
-		})
+	for _, emailEntity := range queuedEmails {
+		if time.Since(emailEntity.Date) > 5*time.Minute {
+			params := domain.EmailParams{
+				From:    emailEntity.From,
+				To:      emailEntity.To,
+				Subject: emailEntity.Subject,
+			}
+			if emailEntity.Body != nil {
+				params.Body = *emailEntity.Body
+			}
+			if emailEntity.InReplyTo != nil {
+				params.InReplyTo = emailEntity.InReplyTo
+			}
+			if emailEntity.References != nil {
+				params.References = emailEntity.References
+			}
+
+			go useCase.processSend(emailEntity, params, emailEntity.Account)
+		}
 	}
-
-	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_QUEUED", eventAttachments)
-
 	return nil
 }

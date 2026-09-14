@@ -13,21 +13,27 @@ func NewEmailRepository(db *gorm.DB) domain.EmailRepository {
 	return &EmailRepository{db: db}
 }
 
-func (r *EmailRepository) Create(email *domain.Email) error {
-	return r.db.Create(email).Error
+func (repository *EmailRepository) Create(email *domain.Email) error {
+	return repository.db.Create(email).Error
 }
 
-func (r *EmailRepository) Update(email *domain.Email) error {
-	return r.db.Save(email).Error
+func (repository *EmailRepository) Update(email *domain.Email) error {
+	return repository.db.Save(email).Error
 }
 
-func (r *EmailRepository) GetPendingOutboundEmails() ([]domain.Email, error) {
+func (repository *EmailRepository) GetPendingOutboundEmails() ([]domain.Email, error) {
 	var emails []domain.Email
-	err := r.db.Where("status NOT IN (?, ?, ?, ?)",
+	err := repository.db.Where("status NOT IN (?, ?, ?, ?)",
 		string(domain.EmailStatusSent),
 		string(domain.EmailStatusBounced),
 		string(domain.EmailStatusBlocked),
 		string(domain.EmailStatusReceived),
 	).Find(&emails).Error
+	return emails, err
+}
+
+func (repository *EmailRepository) GetQueuedEmails() ([]domain.Email, error) {
+	var emails []domain.Email
+	err := repository.db.Preload("Account").Where("status = ?", string(domain.EmailStatusQueued)).Find(&emails).Error
 	return emails, err
 }
