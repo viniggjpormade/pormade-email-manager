@@ -1,10 +1,7 @@
 package email
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,23 +23,23 @@ type SendEmailUseCase interface {
 }
 
 type sendEmailUseCase struct {
-	repository      domain.EmailRepository
-	emailProvider   domain.OutboundEmailProvider
-	storageProvider domain.StorageProvider
-	broker          domain.MessageBroker
+	repository       domain.EmailRepository
+	emailProvider    domain.OutboundEmailProvider
+	storageProvider  domain.StorageProvider
+	publishEventCase PublishEventUseCase
 }
 
 func NewSendEmailUseCase(
 	repository domain.EmailRepository,
 	emailProvider domain.OutboundEmailProvider,
 	storageProvider domain.StorageProvider,
-	broker domain.MessageBroker,
+	publishEventCase PublishEventUseCase,
 ) SendEmailUseCase {
 	return &sendEmailUseCase{
-		repository:      repository,
-		emailProvider:   emailProvider,
-		storageProvider: storageProvider,
-		broker:          broker,
+		repository:       repository,
+		emailProvider:    emailProvider,
+		storageProvider:  storageProvider,
+		publishEventCase: publishEventCase,
 	}
 }
 
@@ -91,13 +88,13 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 	}
 
 	var attachmentsEntities []domain.Attachment
-	for _, attDTO := range input.Attachments {
-		fileUrl, err := useCase.storageProvider.Upload(attDTO.Filename, attDTO.Data)
+	for _, attachmentDTO := range input.Attachments {
+		fileUrl, err := useCase.storageProvider.Upload(attachmentDTO.Filename, attachmentDTO.Data)
 		if err == nil {
 			attachmentsEntities = append(attachmentsEntities, domain.Attachment{
 				ID:          uuid.New().String(),
-				Filename:    attDTO.Filename,
-				ContentType: attDTO.ContentType,
+				Filename:    attachmentDTO.Filename,
+				ContentType: attachmentDTO.ContentType,
 				FileUrl:     fileUrl,
 			})
 		}
@@ -126,51 +123,16 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		return err
 	}
 
-	if (account.KafkaTopic != nil && *account.KafkaTopic != "") || (account.Webhook != nil && *account.Webhook != "") {
-		var kafkaAttachments []map[string]interface{}
-		for _, att := range attachmentsEntities {
-			kafkaAttachments = append(kafkaAttachments, map[string]interface{}{
-				"id":           att.ID,
-				"filename":     att.Filename,
-				"content_type": att.ContentType,
-			})
-		}
-
-		payloadContent := map[string]interface{}{
-			"id":          emailEntity.ID,
-			"subject":     emailEntity.Subject,
-			"from":        emailEntity.From,
-			"to":          emailEntity.To,
-			"body":        *emailEntity.Body,
-			"date":        emailEntity.Date.Format(time.RFC3339),
-			"in_reply_to": emailEntity.InReplyTo,
-			"replied_to":  emailEntity.RepliedTo,
-			"status":      emailEntity.Status,
-			"attachments": kafkaAttachments,
-		}
-
-		payload := map[string]interface{}{
-			"event_type": "EMAIL_QUEUED",
-			"email_id":   emailEntity.ID,
-			"timestamp":  time.Now().Format(time.RFC3339),
-			"payload":    payloadContent,
-		}
-		payloadBytes, _ := json.Marshal(payload)
-
-		if account.KafkaTopic != nil && *account.KafkaTopic != "" {
-			_ = useCase.broker.SendEmailMessage(*account.KafkaTopic, emailEntity.ID, payloadBytes)
-		} else if account.Webhook != nil && *account.Webhook != "" {
-			go func(url string, data []byte) {
-				req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
-				if err != nil {
-					return
-				}
-				req.Header.Set("Content-Type", "application/json")
-				client := &http.Client{Timeout: 10 * time.Second}
-				_, _ = client.Do(req)
-			}(*account.Webhook, payloadBytes)
-		}
+	var eventAttachments []map[string]interface{}
+	for _, attachment := range attachmentsEntities {
+		eventAttachments = append(eventAttachments, map[string]interface{}{
+			"id":           attachment.ID,
+			"filename":     attachment.Filename,
+			"content_type": attachment.ContentType,
+		})
 	}
+
+	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_QUEUED", eventAttachments)
 
 	return nil
 }
