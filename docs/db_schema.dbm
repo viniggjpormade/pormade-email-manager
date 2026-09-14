@@ -4,7 +4,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
  Unexpected results may occur if the code is changed deliberately.
 -->
 <dbmodel pgmodeler-ver="1.1.3" use-changelog="false" max-obj-count="4"
-	 last-position="0,0" last-zoom="1"
+	 last-position="0,-20" last-zoom="0.75" scene-rect="0,-27,1924.99,1103.8"
 	 default-schema="public" default-owner="postgres"
 	 layers="Default layer"
 	 active-layers="0"
@@ -21,17 +21,17 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<role name="postgres"/>
 </schema>
 
-<table name="accounts" layers="0" collapse-mode="2" max-obj-count="12" z-value="0">
+<table name="accounts" layers="0" collapse-mode="2" max-obj-count="15" z-value="0">
 	<schema name="email_manager"/>
 	<role name="postgres"/>
-	<position x="660" y="220"/>
+	<position x="380" y="460"/>
 	<column name="id" not-null="true">
 		<type name="bigserial" length="0"/>
 	</column>
-	<column name="port" not-null="true" default-value="993">
+	<column name="imap_port" not-null="true" default-value="993">
 		<type name="varchar" length="0"/>
 	</column>
-	<column name="host" not-null="true">
+	<column name="imap_host" not-null="true">
 		<type name="varchar" length="0"/>
 	</column>
 	<column name="secure" not-null="true" default-value="false">
@@ -40,7 +40,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="user">
 		<type name="varchar" length="0"/>
 	</column>
-	<column name="password" not-null="true">
+	<column name="imap_password" not-null="true">
 		<type name="varchar" length="0"/>
 	</column>
 	<column name="kafka_topic">
@@ -55,6 +55,15 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="access_token" not-null="true">
 		<type name="varchar" length="0"/>
 	</column>
+	<column name="smtp_port" default-value="587">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="smtp_host">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="smtp_password">
+		<type name="varchar" length="0"/>
+	</column>
 	<constraint name="accounts_pk" type="pk-constr" table="email_manager.accounts">
 		<columns names="id" ref-type="src-columns"/>
 	</constraint>
@@ -63,16 +72,135 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	</constraint>
 </table>
 
-<table name="emails" layers="0" collapse-mode="2" max-obj-count="1" z-value="0">
+<usertype name="email_status" configuration="enumeration">
 	<schema name="email_manager"/>
 	<role name="postgres"/>
-	<position x="1080" y="440"/>
+	<enumeration label="queued"/>
+	<enumeration label="received"/>
+	<enumeration label="sent"/>
+	<enumeration label="deferred"/>
+	<enumeration label="bounced"/>
+	<enumeration label="blocked"/>
+	<enumeration label="quarantine"/>
+</usertype>
+
+<table name="emails" layers="0" collapse-mode="2" max-obj-count="13" z-value="0">
+	<schema name="email_manager"/>
+	<role name="postgres"/>
+	<position x="940" y="500"/>
 	<column name="id" not-null="true">
-		<type name="bigserial" length="0"/>
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="from" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="to" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="replied_to">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="body">
+		<type name="text" length="0"/>
+	</column>
+	<column name="date">
+		<type name="timestamptz" length="0"/>
+	</column>
+	<column name="in_reply_to">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="subject">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="status" not-null="true">
+		<type name="email_manager.email_status" length="0"/>
+	</column>
+	<column name="references">
+		<type name="text" length="0"/>
 	</column>
 	<constraint name="emails_pk" type="pk-constr" table="email_manager.emails">
 		<columns names="id" ref-type="src-columns"/>
 	</constraint>
+
+	<customidxs object-type="column">
+		<object name="id_accounts" index="7"/>
+	</customidxs>
+	<customidxs object-type="constraint">
+		<object name="accounts_fk" index="1"/>
+	</customidxs></table>
+
+<relationship name="accounts_has_many_emails" type="rel1n" layers="0"
+	 src-col-pattern="{sc}_{st}"
+	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
+	 src-fk-pattern="{st}_fk"
+	 custom-color="#aa0000"
+	 src-table="email_manager.accounts"
+	 dst-table="email_manager.emails"
+	 src-required="true" dst-required="false"/>
+
+<table name="email_webhook_logs" layers="0" collapse-mode="2" max-obj-count="3" z-value="0">
+	<schema name="email_manager"/>
+	<role name="postgres"/>
+	<position x="920" y="220"/>
+	<column name="id" not-null="true">
+		<type name="bigserial" length="0"/>
+	</column>
+	<constraint name="email_webhook_logs_pk" type="pk-constr" table="email_manager.email_webhook_logs">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+
+	<customidxs object-type="column">
+		<object name="id_emails" index="1"/>
+	</customidxs>
+	<customidxs object-type="constraint">
+		<object name="emails_fk" index="1"/>
+		<object name="email_webhook_logs_uq" index="2"/>
+	</customidxs>
 </table>
+
+<table name="attachments" layers="0" collapse-mode="2" max-obj-count="6" z-value="0">
+	<schema name="email_manager"/>
+	<role name="postgres"/>
+	<position x="1420" y="520"/>
+	<column name="id" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="filename" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="content_type" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<column name="file_url" not-null="true">
+		<type name="varchar" length="0"/>
+	</column>
+	<constraint name="medias_pk" type="pk-constr" table="email_manager.attachments">
+		<columns names="id" ref-type="src-columns"/>
+	</constraint>
+
+	<customidxs object-type="column">
+		<object name="id_emails" index="2"/>
+	</customidxs>
+	<customidxs object-type="constraint">
+		<object name="emails_fk" index="1"/>
+	</customidxs></table>
+
+<relationship name="emails_has_many_medias" type="rel1n" layers="0"
+	 src-col-pattern="{sc}_{st}"
+	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
+	 src-fk-pattern="{st}_fk"
+	 custom-color="#246578"
+	 src-table="email_manager.emails"
+	 dst-table="email_manager.attachments"
+	 src-required="true" dst-required="false"/>
+
+<relationship name="email_webhook_logs_has_one_emails" type="rel11" layers="0"
+	 src-col-pattern="{sc}_{st}"
+	 pk-pattern="{dt}_pk" uq-pattern="{dt}_uq"
+	 src-fk-pattern="{st}_fk"
+	 custom-color="#aa0000"
+	 src-table="email_manager.emails"
+	 dst-table="email_manager.email_webhook_logs"
+	 src-required="true" dst-required="false"/>
 
 </dbmodel>

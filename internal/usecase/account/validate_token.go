@@ -8,7 +8,7 @@ import (
 )
 
 type ValidateTokenUseCase interface {
-	Execute(rawToken string) bool
+	Execute(rawToken string) (*domain.Account, error)
 }
 
 type validateTokenUseCase struct {
@@ -21,12 +21,9 @@ func NewValidateTokenUseCase(repository domain.AccountRepository) ValidateTokenU
 	}
 }
 
-func (useCase *validateTokenUseCase) Execute(rawToken string) bool {
+func (useCase *validateTokenUseCase) Execute(rawToken string) (*domain.Account, error) {
 	hash := sha256.Sum256([]byte(rawToken))
 	hashedToken := hex.EncodeToString(hash[:])
 
-	_, err := useCase.repository.FindByToken(hashedToken)
-	
-	// Se err for nil, significa que encontrou a conta (token válido)
-	return err == nil
+	return useCase.repository.FindByToken(hashedToken)
 }

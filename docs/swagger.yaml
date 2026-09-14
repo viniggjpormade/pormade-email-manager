@@ -1,16 +1,269 @@
 basePath: /
+definitions:
+  account.CreateAccountDto:
+    properties:
+      imap_host:
+        type: string
+      imap_password:
+        type: string
+      imap_port:
+        type: string
+      kafka_topic:
+        type: string
+      smtp_host:
+        type: string
+      smtp_password:
+        type: string
+      smtp_port:
+        type: string
+      user:
+        type: string
+      webhook:
+        type: string
+    required:
+    - imap_host
+    - imap_password
+    - imap_port
+    type: object
+  account.UpdateAccountDto:
+    properties:
+      imap_host:
+        type: string
+      imap_password:
+        type: string
+      imap_port:
+        type: string
+      kafka_topic:
+        type: string
+      smtp_host:
+        type: string
+      smtp_password:
+        type: string
+      smtp_port:
+        type: string
+      user:
+        type: string
+      webhook:
+        type: string
+    type: object
+  domain.Account:
+    properties:
+      accessToken:
+        type: string
+      createdAt:
+        type: string
+      emails:
+        items:
+          $ref: '#/definitions/domain.Email'
+        type: array
+      id:
+        type: integer
+      imapHost:
+        type: string
+      imapPassword:
+        type: string
+      imapPort:
+        type: string
+      kafkaTopic:
+        type: string
+      secure:
+        type: boolean
+      smtpHost:
+        type: string
+      smtpPassword:
+        type: string
+      smtpPort:
+        type: string
+      user:
+        type: string
+      webhook:
+        type: string
+    type: object
+  domain.Attachment:
+    properties:
+      contentType:
+        type: string
+      fileUrl:
+        type: string
+      filename:
+        type: string
+      id:
+        type: string
+      idEmails:
+        type: string
+    type: object
+  domain.Email:
+    properties:
+      account:
+        $ref: '#/definitions/domain.Account'
+      attachments:
+        items:
+          $ref: '#/definitions/domain.Attachment'
+        type: array
+      body:
+        type: string
+      date:
+        type: string
+      from:
+        type: string
+      id:
+        type: string
+      idAccounts:
+        type: integer
+      inReplyTo:
+        type: string
+      references:
+        type: string
+      repliedTo:
+        type: string
+      status:
+        type: string
+      subject:
+        type: string
+      to:
+        items:
+          type: string
+        type: array
+    type: object
 host: localhost:8000
 info:
   contact: {}
   description: API Para o gerenciamento de emails.
   title: Pormade Email Manager API
   version: "1.0"
-paths: {}
+paths:
+  /accounts:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta de email
+      parameters:
+      - description: Dados da conta
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/account.CreateAccountDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Account'
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Criar conta
+      tags:
+      - Account
+    put:
+      consumes:
+      - application/json
+      description: Atualiza uma conta de email existente
+      parameters:
+      - description: Dados da conta a serem atualizados
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/account.UpdateAccountDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Account'
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Atualizar conta
+      tags:
+      - Account
+  /emails:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Envia um novo email com suporte a anexos
+      parameters:
+      - description: Email do destinatário
+        in: formData
+        name: to
+        required: true
+        type: string
+      - description: 'Assunto do e-mail(Mensagens de retorno devem ter Re: subject
+          do email a ser respondido)'
+        in: formData
+        name: subject
+        required: true
+        type: string
+      - description: Corpo do e-mail (Texto ou HTML)
+        in: formData
+        name: body
+        required: true
+        type: string
+      - description: ID da mensagem que este e-mail responde (opcional)
+        in: formData
+        name: inReplyTo
+        type: string
+      - description: Cadeia de referências (opcional)
+        in: formData
+        name: references
+        type: string
+      - collectionFormat: csv
+        description: Arquivos em anexo
+        in: formData
+        items:
+          type: file
+        name: attachments
+        type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: mensagem de sucesso
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Enviar email
+      tags:
+      - Email
 schemes:
 - http
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
-tags:
-- description: Operações relacionadas a autenticação
-  name: Auth
-- description: Operações relacionadas a usuários
-  name: User
