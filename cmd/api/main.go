@@ -42,6 +42,7 @@ func main() {
 	// Repositories
 	accountRepo := postgres.NewAccountRepository(db)
 	emailRepo := postgres.NewEmailRepository(db)
+	webhookLogRepo := postgres.NewWebhookLogRepository(db)
 
 	// Providers
 	storageProvider := storage.NewLocalStorage("./uploads")
@@ -65,9 +66,11 @@ func main() {
 	updateAccountUseCase := account.NewUpdateUseCase(accountRepo)
 	validateTokenUseCase := account.NewValidateTokenUseCase(accountRepo)
 
-	sendEmailUseCase := email.NewSendEmailUseCase(emailRepo, emailProvider, storageProvider, kafkaBroker)
-	verifyInboxUseCase := email.NewVerifyAndSaveInboxUseCase(emailRepo, storageProvider, kafkaBroker)
+	publishEventUseCase := email.NewPublishEventUseCase(webhookLogRepo, kafkaBroker)
+	sendEmailUseCase := email.NewSendEmailUseCase(emailRepo, emailProvider, storageProvider, publishEventUseCase)
+	verifyInboxUseCase := email.NewVerifyAndSaveInboxUseCase(emailRepo, storageProvider, publishEventUseCase)
 	syncEmailStatusUseCase := email.NewSyncEmailStatusUseCase(emailRepo, accountRepo, emailProvider, kafkaBroker)
+	retryFailedEventsUseCase := email.NewRetryFailedEventsUseCase(webhookLogRepo, accountRepo, kafkaBroker)
 
 	// Handlers & Middleware
 	accountHandler := handlers.NewAccountHandler(createAccountUseCase, updateAccountUseCase)
@@ -80,7 +83,7 @@ func main() {
 	router.RegisterEmailRoutes(engine, emailHandler, authMiddleware)
 
 	// Cron
-	emailJobs := cron_adapter.NewEmailJobs(verifyInboxUseCase, syncEmailStatusUseCase, accountRepo)
+	emailJobs := cron_adapter.NewEmailJobs(verifyInboxUseCase, syncEmailStatusUseCase, retryFailedEventsUseCase, accountRepo)
 	cronScheduler := cron_infra.InitScheduler(emailJobs)
 	cronScheduler.Start()
 	defer cronScheduler.Stop()

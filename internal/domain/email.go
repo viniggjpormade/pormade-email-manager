@@ -49,9 +49,17 @@ type Attachment struct {
 }
 
 type EmailWebhookLog struct {
-	ID       int64  `gorm:"primaryKey;autoIncrement;type:bigserial"`
-	IdEmails string `gorm:"column:id_emails;type:varchar;not null;unique"`
-	Email    Email  `gorm:"foreignKey:IdEmails"`
+	ID       int64   `gorm:"primaryKey;autoIncrement;type:bigserial"`
+	IdEmails string  `gorm:"column:id_emails;type:varchar;not null;unique"`
+	Success  bool    `gorm:"type:boolean;not null;default:false"`
+	Error    *string `gorm:"type:text"`
+	Email    Email   `gorm:"foreignKey:IdEmails"`
+}
+
+type EmailWebhookLogRepository interface {
+	Create(webhookLog *EmailWebhookLog) error
+	Update(webhookLog *EmailWebhookLog) error
+	FindAllFailed() ([]EmailWebhookLog, error)
 }
 
 type EmailParams struct {

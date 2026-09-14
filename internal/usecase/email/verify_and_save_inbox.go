@@ -1,11 +1,7 @@
 package email
 
 import (
-	"bytes"
-	"encoding/json"
 	"log"
-	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
@@ -16,21 +12,25 @@ type VerifyAndSaveInboxUseCase interface {
 }
 
 type verifyAndSaveInboxUseCase struct {
-	repository      domain.EmailRepository
-	storageProvider domain.StorageProvider
-	broker          domain.MessageBroker
+	repository       domain.EmailRepository
+	storageProvider  domain.StorageProvider
+	publishEventCase PublishEventUseCase
 }
 
 type emailPayload struct {
 	email            domain.Email
-	kafkaAttachments []map[string]interface{}
+	eventAttachments []map[string]interface{}
 }
 
-func NewVerifyAndSaveInboxUseCase(repository domain.EmailRepository, storageProvider domain.StorageProvider, broker domain.MessageBroker) VerifyAndSaveInboxUseCase {
+func NewVerifyAndSaveInboxUseCase(
+	repository domain.EmailRepository,
+	storageProvider domain.StorageProvider,
+	publishEventCase PublishEventUseCase,
+) VerifyAndSaveInboxUseCase {
 	return &verifyAndSaveInboxUseCase{
-		repository:      repository,
-		storageProvider: storageProvider,
-		broker:          broker,
+		repository:       repository,
+		storageProvider:  storageProvider,
+		publishEventCase: publishEventCase,
 	}
 }
 
@@ -49,11 +49,11 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 		}
 
 		emailEntity := useCase.buildEmailEntity(account, emailDTO, content.Body)
-		kafkaAttachments := useCase.processAttachments(account, &emailEntity, content.Attachments)
+		eventAttachments := useCase.processAttachments(account, &emailEntity, content.Attachments)
 
 		emailsToSave = append(emailsToSave, emailPayload{
 			email:            emailEntity,
-			kafkaAttachments: kafkaAttachments,
+			eventAttachments: eventAttachments,
 		})
 	}
 
@@ -64,7 +64,7 @@ func (useCase *verifyAndSaveInboxUseCase) Execute(account domain.Account, imapPr
 			continue
 		}
 
-		useCase.publishEvent(account, item)
+		useCase.publishEventCase.Execute(account, item.email, "EMAIL_RECEIVED", item.eventAttachments)
 	}
 
 	return nil
@@ -110,75 +110,30 @@ func (useCase *verifyAndSaveInboxUseCase) buildEmailEntity(account domain.Accoun
 }
 
 func (useCase *verifyAndSaveInboxUseCase) processAttachments(account domain.Account, emailEntity *domain.Email, attachments []domain.AttachmentsDTO) []map[string]interface{} {
-	var kafkaAttachments []map[string]interface{}
+	var eventAttachments []map[string]interface{}
 
-	for _, att := range attachments {
-		fileUrl, err := useCase.storageProvider.Upload(att.Filename, att.Data)
+	for _, attachmentDTO := range attachments {
+		fileUrl, err := useCase.storageProvider.Upload(attachmentDTO.Filename, attachmentDTO.Data)
 		if err != nil {
-			log.Printf("[Conta %d] Erro ao salvar anexo %s: %v", account.ID, att.Filename, err)
+			log.Printf("[Conta %d] Erro ao salvar anexo %s: %v", account.ID, attachmentDTO.Filename, err)
 			continue
 		}
 
 		attachmentRecord := domain.Attachment{
 			ID:          uuid.New().String(),
-			Filename:    att.Filename,
-			ContentType: att.ContentType,
+			Filename:    attachmentDTO.Filename,
+			ContentType: attachmentDTO.ContentType,
 			FileUrl:     fileUrl,
 			IdEmails:    emailEntity.ID,
 		}
 		emailEntity.Attachments = append(emailEntity.Attachments, attachmentRecord)
 
-		kafkaAttachments = append(kafkaAttachments, map[string]interface{}{
+		eventAttachments = append(eventAttachments, map[string]interface{}{
 			"id":           attachmentRecord.ID,
-			"filename":     att.Filename,
-			"content_type": att.ContentType,
+			"filename":     attachmentDTO.Filename,
+			"content_type": attachmentDTO.ContentType,
 		})
 	}
 
-	return kafkaAttachments
-}
-
-func (useCase *verifyAndSaveInboxUseCase) publishEvent(account domain.Account, item emailPayload) {
-	if (account.KafkaTopic == nil || *account.KafkaTopic == "") && (account.Webhook == nil || *account.Webhook == "") {
-		return
-	}
-
-	payloadContent := map[string]interface{}{
-		"id":          item.email.ID,
-		"subject":     item.email.Subject,
-		"from":        item.email.From,
-		"to":          item.email.To,
-		"body":        item.email.Body,
-		"date":        item.email.Date,
-		"in_reply_to": item.email.InReplyTo,
-		"replied_to":  item.email.RepliedTo,
-		"status":      item.email.Status,
-		"attachments": item.kafkaAttachments,
-	}
-
-	payload := map[string]interface{}{
-		"event_type": "EMAIL_RECEIVED",
-		"email_id":   item.email.ID,
-		"timestamp":  item.email.Date.Format(time.RFC3339),
-		"payload":    payloadContent,
-	}
-
-	emailBytes, _ := json.Marshal(payload)
-
-	if account.KafkaTopic != nil && *account.KafkaTopic != "" && useCase.broker != nil {
-		err := useCase.broker.SendEmailMessage(*account.KafkaTopic, item.email.ID, emailBytes)
-		if err != nil {
-			log.Printf("[Conta %d] Erro ao publicar email %s no Kafka: %v", account.ID, item.email.ID, err)
-		}
-	} else if account.Webhook != nil && *account.Webhook != "" {
-		go func(url string, data []byte) {
-			req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
-			if err != nil {
-				return
-			}
-			req.Header.Set("Content-Type", "application/json")
-			client := &http.Client{Timeout: 10 * time.Second}
-			_, _ = client.Do(req)
-		}(*account.Webhook, emailBytes)
-	}
+	return eventAttachments
 }
