@@ -206,7 +206,8 @@ paths:
         name: to
         required: true
         type: string
-      - description: Assunto do e-mail
+      - description: 'Assunto do e-mail(Mensagens de retorno devem ter Re: subject
+          do email a ser respondido)'
         in: formData
         name: subject
         required: true
@@ -219,6 +220,10 @@ paths:
       - description: ID da mensagem que este e-mail responde (opcional)
         in: formData
         name: inReplyTo
+        type: string
+      - description: Cadeia de referências (opcional)
+        in: formData
+        name: references
         type: string
       - collectionFormat: csv
         description: Arquivos em anexo

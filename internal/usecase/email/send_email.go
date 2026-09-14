@@ -52,6 +52,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		Subject:     input.Subject,
 		Body:        input.Body,
 		InReplyTo:   input.InReplyTo,
+		References:  input.References,
 		Attachments: input.Attachments,
 	}
 	var response *domain.SendEmailResponse

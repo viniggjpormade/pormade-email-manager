@@ -141,7 +141,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Assunto do e-mail",
+                        "description": "Assunto do e-mail(Mensagens de retorno devem ter Re: subject do email a ser respondido)",
                         "name": "subject",
                         "in": "formData",
                         "required": true
@@ -157,6 +157,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "ID da mensagem que este e-mail responde (opcional)",
                         "name": "inReplyTo",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cadeia de referências (opcional)",
+                        "name": "references",
                         "in": "formData"
                     },
                     {

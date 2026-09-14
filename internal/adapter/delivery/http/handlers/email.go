@@ -28,9 +28,10 @@ func NewEmailHandler(
 // @Produce json
 // @Security BearerAuth
 // @Param to formData string true "Email do destinatário"
-// @Param subject formData string true "Assunto do e-mail"
+// @Param subject formData string true "Assunto do e-mail(Mensagens de retorno devem ter Re: subject do email a ser respondido)"
 // @Param body formData string true "Corpo do e-mail (Texto ou HTML)"
 // @Param inReplyTo formData string false "ID da mensagem que este e-mail responde (opcional)"
+// @Param references formData string false "Cadeia de referências (opcional)"
 // @Param attachments formData []file false "Arquivos em anexo"
 // @Success 201 {object} map[string]string "mensagem de sucesso"
 // @Failure 400 {object} map[string]string "error message"
