@@ -82,8 +82,7 @@ func main() {
 	router.RegisterAccountRoutes(engine, accountHandler, authMiddleware)
 	router.RegisterEmailRoutes(engine, emailHandler, authMiddleware)
 
-	// Cron
-	emailJobs := cron_adapter.NewEmailJobs(verifyInboxUseCase, syncEmailStatusUseCase, retryFailedEventsUseCase, accountRepo)
+	emailJobs := cron_adapter.NewEmailJobs(accountRepo, sendEmailUseCase, syncEmailStatusUseCase, retryFailedEventsUseCase, verifyInboxUseCase)
 	cronScheduler := cron_infra.InitScheduler(emailJobs)
 	cronScheduler.Start()
 	defer cronScheduler.Stop()

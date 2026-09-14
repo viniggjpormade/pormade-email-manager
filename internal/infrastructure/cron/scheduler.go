@@ -11,6 +11,7 @@ func InitScheduler(emailJobs *cron_adapter.EmailJobs) *cron.Cron {
 	c.AddFunc("*/1 * * * *", emailJobs.RunVerifyAndSaveInbox)
 	c.AddFunc("*/1 * * * *", emailJobs.RunSyncEmailStatus)
 	c.AddFunc("*/10 * * * *", emailJobs.RunRetryFailedEvents)
+	c.AddFunc("*/5 * * * *", emailJobs.RunProcessQueuedEmails)
 
 	return c
 }

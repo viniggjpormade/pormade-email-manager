@@ -3,6 +3,7 @@ package cron
 import (
 	"log"
 	"strconv"
+	"sync"
 
 	emailRepository "github.com/viniggjpormade/pormade-email-manager/internal/adapter/repository/email"
 	"github.com/viniggjpormade/pormade-email-manager/internal/domain"
@@ -10,23 +11,26 @@ import (
 )
 
 type EmailJobs struct {
-	verifyAndSaveInboxUseCase emailUseCase.VerifyAndSaveInboxUseCase
+	accountRepository         domain.AccountRepository
+	sendEmailUseCase          emailUseCase.SendEmailUseCase
 	syncEmailStatusUseCase    emailUseCase.SyncEmailStatusUseCase
 	retryFailedEventsUseCase  emailUseCase.RetryFailedEventsUseCase
-	accountRepository         domain.AccountRepository
+	verifyAndSaveInboxUseCase emailUseCase.VerifyAndSaveInboxUseCase
 }
 
 func NewEmailJobs(
-	verifyUseCase emailUseCase.VerifyAndSaveInboxUseCase,
+	accountRepo domain.AccountRepository,
+	sendEmailCase emailUseCase.SendEmailUseCase,
 	syncUseCase emailUseCase.SyncEmailStatusUseCase,
 	retryUseCase emailUseCase.RetryFailedEventsUseCase,
-	accountRepo domain.AccountRepository,
+	verifyUseCase emailUseCase.VerifyAndSaveInboxUseCase,
 ) *EmailJobs {
 	return &EmailJobs{
-		verifyAndSaveInboxUseCase: verifyUseCase,
+		accountRepository:         accountRepo,
 		syncEmailStatusUseCase:    syncUseCase,
 		retryFailedEventsUseCase:  retryUseCase,
-		accountRepository:         accountRepo,
+		verifyAndSaveInboxUseCase: verifyUseCase,
+		sendEmailUseCase:          sendEmailCase,
 	}
 }
 
@@ -37,37 +41,49 @@ func (job *EmailJobs) RunVerifyAndSaveInbox() {
 		return
 	}
 
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 10)
+
 	for _, account := range accounts {
-		port, _ := strconv.Atoi(account.ImapPort)
-		if port == 0 {
-			port = 993
-		}
+		wg.Add(1)
+		go func(acc domain.Account) {
+			defer wg.Done()
 
-		user := ""
-		if account.User != nil {
-			user = *account.User
-		}
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
 
-		connectInfo := domain.ConnectInfo{
-			IMAPHost:     account.ImapHost,
-			IMAPPort:     port,
-			Username:     user,
-			IMAPPassword: account.ImapPassword,
-		}
+			port, _ := strconv.Atoi(acc.ImapPort)
+			if port == 0 {
+				port = 993
+			}
 
-		imapProvider, err := emailRepository.NewImapRepository(connectInfo)
-		if err != nil {
-			log.Printf("[Conta %d] Erro ao conectar no IMAP (%s): %v", account.ID, account.ImapHost, err)
-			continue
-		}
+			user := ""
+			if acc.User != nil {
+				user = *acc.User
+			}
 
-		err = job.verifyAndSaveInboxUseCase.Execute(account, imapProvider)
-		if err != nil {
-			log.Printf("[Conta %d] Erro ao executar caso de uso: %v", account.ID, err)
-		}
+			connectInfo := domain.ConnectInfo{
+				IMAPHost:     acc.ImapHost,
+				IMAPPort:     port,
+				Username:     user,
+				IMAPPassword: acc.ImapPassword,
+			}
 
-		imapProvider.Disconnect()
+			imapProvider, err := emailRepository.NewImapRepository(connectInfo)
+			if err != nil {
+				log.Printf("[Conta %d] Erro ao conectar no IMAP (%s): %v", acc.ID, acc.ImapHost, err)
+				return
+			}
+			defer imapProvider.Disconnect()
+
+			err = job.verifyAndSaveInboxUseCase.Execute(acc, imapProvider)
+			if err != nil {
+				log.Printf("[Conta %d] Erro ao executar caso de uso: %v", acc.ID, err)
+			}
+		}(account)
 	}
+
+	wg.Wait()
 }
 
 func (job *EmailJobs) RunSyncEmailStatus() {
@@ -81,5 +97,12 @@ func (job *EmailJobs) RunRetryFailedEvents() {
 	err := job.retryFailedEventsUseCase.Execute()
 	if err != nil {
 		log.Printf("[Cron] Erro ao retentar eventos com falha: %v", err)
+	}
+}
+
+func (job *EmailJobs) RunProcessQueuedEmails() {
+	err := job.sendEmailUseCase.ProcessQueuedEmails()
+	if err != nil {
+		log.Printf("[Cron] Erro ao processar emails na fila: %v", err)
 	}
 }

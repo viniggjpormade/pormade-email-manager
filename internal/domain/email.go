@@ -112,6 +112,7 @@ type EmailRepository interface {
 	Create(email *Email) error
 	Update(email *Email) error
 	GetPendingOutboundEmails() ([]Email, error)
+	GetQueuedEmails() ([]Email, error)
 }
 
 type SendEmailResponse struct {
