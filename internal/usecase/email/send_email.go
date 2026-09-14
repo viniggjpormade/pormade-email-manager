@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -124,7 +126,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 		return err
 	}
 
-	if account.KafkaTopic != nil && *account.KafkaTopic != "" {
+	if (account.KafkaTopic != nil && *account.KafkaTopic != "") || (account.Webhook != nil && *account.Webhook != "") {
 		var kafkaAttachments []map[string]interface{}
 		for _, att := range attachmentsEntities {
 			kafkaAttachments = append(kafkaAttachments, map[string]interface{}{
@@ -154,7 +156,20 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 			"payload":    payloadContent,
 		}
 		payloadBytes, _ := json.Marshal(payload)
-		_ = useCase.broker.SendEmailMessage(*account.KafkaTopic, emailEntity.ID, payloadBytes)
+
+		if account.KafkaTopic != nil && *account.KafkaTopic != "" {
+			_ = useCase.broker.SendEmailMessage(*account.KafkaTopic, emailEntity.ID, payloadBytes)
+		} else if account.Webhook != nil && *account.Webhook != "" {
+			go func(url string, data []byte) {
+				req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+				if err != nil {
+					return
+				}
+				req.Header.Set("Content-Type", "application/json")
+				client := &http.Client{Timeout: 10 * time.Second}
+				_, _ = client.Do(req)
+			}(*account.Webhook, payloadBytes)
+		}
 	}
 
 	return nil

@@ -2,6 +2,9 @@ package router
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -25,6 +28,10 @@ func Logger() gin.HandlerFunc {
 }
 
 func NewRouter() *gin.Engine {
+	isProduction, err := strconv.ParseBool(os.Getenv("PRODUCTION"))
+	if err != nil {
+		log.Panic("Erro ao identificar ambiente")
+	}
 	router := gin.Default()
 	router.MaxMultipartMemory = 8388608
 	router.Use(Logger())
@@ -35,8 +42,9 @@ func NewRouter() *gin.Engine {
 		ExposeHeaders:    []string{"Content-Length", "Content-Range"},
 		AllowCredentials: true,
 	}))
-
-	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if !isProduction {
+		router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	return router
 }

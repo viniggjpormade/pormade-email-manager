@@ -47,6 +47,7 @@ type externalEmailPayload struct {
 
 func (provider *externalEmailProvider) SendEmail(params domain.EmailParams) (*domain.SendEmailResponse, error) {
 	baseUrl := os.Getenv("EMAIL_PROVIDER_BASE_URL")
+	baseProviderEmail := os.Getenv("mailgateway.api@pormade.com.br")
 
 	externalAttachments := make([]externalEmailAttachment, 0)
 	for _, attachment := range params.Attachments {
@@ -59,7 +60,7 @@ func (provider *externalEmailProvider) SendEmail(params domain.EmailParams) (*do
 	}
 
 	payload := externalEmailPayload{
-		From:           params.From,
+		From:           baseProviderEmail,
 		To:             params.To,
 		Cc:             []string{},
 		Bcc:            []string{},
