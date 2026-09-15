@@ -61,7 +61,7 @@ func (handler *AccountHandler) Create(context *gin.Context) {
 // @Success 200 {object} domain.Account
 // @Failure 400 {object} map[string]string "error message"
 // @Failure 401 {object} map[string]string "error message"
-// @Router /accounts [put]
+// @Router /accounts [patch]
 func (handler *AccountHandler) Update(context *gin.Context) {
 	accContext, exists := context.Get("account")
 	if !exists {

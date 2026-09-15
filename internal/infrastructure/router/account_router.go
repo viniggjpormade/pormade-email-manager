@@ -9,6 +9,6 @@ func RegisterAccountRoutes(router *gin.Engine, handler *handlers.AccountHandler,
 	group := router.Group("/accounts")
 	{
 		group.POST("", handler.Create)
-		group.PUT("", authMiddleware, handler.Update)
+		group.PATCH("", authMiddleware, handler.Update)
 	}
 }
