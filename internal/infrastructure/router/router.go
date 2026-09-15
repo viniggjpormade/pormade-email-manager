@@ -39,6 +39,10 @@ func NewRouter() *gin.Engine {
 		}
 	}
 
+	if isProduction {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	router := gin.Default()
 	router.MaxMultipartMemory = 8388608
 	router.Use(Logger())
