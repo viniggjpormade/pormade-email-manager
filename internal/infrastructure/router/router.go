@@ -2,9 +2,9 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -28,15 +28,22 @@ func Logger() gin.HandlerFunc {
 }
 
 func NewRouter() *gin.Engine {
-	isProduction, err := strconv.ParseBool(os.Getenv("PRODUCTION"))
-	if err != nil {
-		log.Panic("Erro ao identificar ambiente")
+	isProduction, _ := strconv.ParseBool(os.Getenv("PRODUCTION"))
+	rawOrigins := os.Getenv("ALLOWED_ORIGINS")
+	var allowedOrigins []string
+
+	if rawOrigins != "" {
+		origins := strings.Split(rawOrigins, ",")
+		for _, origin := range origins {
+			allowedOrigins = append(allowedOrigins, strings.TrimSpace(origin))
+		}
 	}
+
 	router := gin.Default()
 	router.MaxMultipartMemory = 8388608
 	router.Use(Logger())
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization", "Range"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Range"},

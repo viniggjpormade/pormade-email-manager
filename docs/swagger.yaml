@@ -133,34 +133,7 @@ info:
   version: "1.0"
 paths:
   /accounts:
-    post:
-      consumes:
-      - application/json
-      description: Cria uma nova conta de email
-      parameters:
-      - description: Dados da conta
-        in: body
-        name: account
-        required: true
-        schema:
-          $ref: '#/definitions/account.CreateAccountDto'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/domain.Account'
-        "400":
-          description: error message
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Criar conta
-      tags:
-      - Account
-    put:
+    patch:
       consumes:
       - application/json
       description: Atualiza uma conta de email existente
@@ -193,6 +166,33 @@ paths:
       security:
       - BearerAuth: []
       summary: Atualizar conta
+      tags:
+      - Account
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta de email
+      parameters:
+      - description: Dados da conta
+        in: body
+        name: account
+        required: true
+        schema:
+          $ref: '#/definitions/account.CreateAccountDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Account'
+        "400":
+          description: error message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Criar conta
       tags:
       - Account
   /emails:

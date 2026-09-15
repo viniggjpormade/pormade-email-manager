@@ -16,7 +16,48 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/accounts": {
-            "put": {
+            "post": {
+                "description": "Cria uma nova conta de email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Account"
+                ],
+                "summary": "Criar conta",
+                "parameters": [
+                    {
+                        "description": "Dados da conta",
+                        "name": "account",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/account.CreateAccountDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Account"
+                        }
+                    },
+                    "400": {
+                        "description": "error message",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -61,47 +102,6 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "error message",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Cria uma nova conta de email",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Account"
-                ],
-                "summary": "Criar conta",
-                "parameters": [
-                    {
-                        "description": "Dados da conta",
-                        "name": "account",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/account.CreateAccountDto"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/domain.Account"
-                        }
-                    },
-                    "400": {
                         "description": "error message",
                         "schema": {
                             "type": "object",
