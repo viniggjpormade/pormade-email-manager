@@ -26,12 +26,10 @@ func LoadConfig() {
 		candidate := filepath.Join(cwd, ".env")
 		if _, err := os.Stat(candidate); err == nil {
 			envPath = candidate
-		} else {
-			panic(fmt.Sprintf("Erro ao carregar o arquivo .env em %s", envPath))
 		}
 	}
 
 	if err := godotenv.Load(envPath); err != nil {
-		panic(fmt.Sprintf("Erro ao carregar o arquivo .env em %s", envPath))
+		fmt.Println("Aviso: Arquivo .env não encontrado. Utilizando variáveis injetadas pelo sistema/Docker.")
 	}
 }
