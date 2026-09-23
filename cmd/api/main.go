@@ -74,7 +74,7 @@ func main() {
 
 	// Handlers & Middleware
 	accountHandler := handlers.NewAccountHandler(createAccountUseCase, updateAccountUseCase)
-	emailHandler := handlers.NewEmailHandler(sendEmailUseCase)
+	emailHandler := handlers.NewEmailHandler(sendEmailUseCase, emailRepo)
 	authMiddleware := middlewares.EnsureAuth(validateTokenUseCase)
 
 	// Router
