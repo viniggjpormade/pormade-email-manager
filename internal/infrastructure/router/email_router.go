@@ -9,5 +9,6 @@ func RegisterEmailRoutes(router *gin.Engine, handler *handlers.EmailHandler, aut
 	group := router.Group("/emails")
 	{
 		group.POST("", authMiddleware, handler.SendEmail)
+		group.GET("/attachments/:id/file", authMiddleware, handler.DownloadAttachment)
 	}
 }

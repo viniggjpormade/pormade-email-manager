@@ -258,6 +258,39 @@ paths:
       summary: Enviar email
       tags:
       - Email
+  /emails/attachments/{id}/file:
+    get:
+      description: Baixa um anexo pelo seu ID
+      parameters:
+      - description: ID do anexo
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Baixar anexo
+      tags:
+      - Email
 schemes:
 - http
 securityDefinitions:

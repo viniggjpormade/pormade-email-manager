@@ -113,6 +113,7 @@ type EmailRepository interface {
 	Update(email *Email) error
 	GetPendingOutboundEmails() ([]Email, error)
 	GetQueuedEmails() ([]Email, error)
+	GetAttachmentById(id string) (*Attachment, error)
 }
 
 type SendEmailResponse struct {

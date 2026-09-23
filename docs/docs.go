@@ -206,6 +206,58 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/emails/attachments/{id}/file": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Baixa um anexo pelo seu ID",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "Email"
+                ],
+                "summary": "Baixar anexo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do anexo",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

@@ -37,3 +37,9 @@ func (repository *EmailRepository) GetQueuedEmails() ([]domain.Email, error) {
 	err := repository.db.Preload("Account").Where("status = ?", string(domain.EmailStatusQueued)).Find(&emails).Error
 	return emails, err
 }
+
+func (repository *EmailRepository) GetAttachmentById(id string) (*domain.Attachment, error) {
+	var attachment domain.Attachment
+	err := repository.db.Where("id = ?", id).First(&attachment).Error
+	return &attachment, err
+}
