@@ -79,13 +79,13 @@ func (handler *EmailHandler) SendEmail(context *gin.Context) {
 	}
 	account := accountInterface.(domain.Account)
 
-	err = handler.sendEmailUseCase.Execute(account, input)
+	emailId, err := handler.sendEmailUseCase.Execute(account, input)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	context.JSON(http.StatusCreated, gin.H{"message": "email enviado"})
+	context.JSON(http.StatusCreated, gin.H{"message": "email enviado", "id": emailId})
 }
 
 // DownloadAttachment godoc
