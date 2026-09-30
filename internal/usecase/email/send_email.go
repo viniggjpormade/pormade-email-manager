@@ -89,7 +89,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 
 	err := useCase.repository.Create(&emailEntity)
 	if err != nil {
-		return emailId, err
+		return "", err
 	}
 
 	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_QUEUED", eventAttachments)
@@ -106,7 +106,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 
 	go useCase.processSend(emailEntity, params, account)
 
-	return nil
+	return emailId, nil
 }
 
 func (useCase *sendEmailUseCase) processSend(emailEntity domain.Email, params domain.EmailParams, account domain.Account) {
