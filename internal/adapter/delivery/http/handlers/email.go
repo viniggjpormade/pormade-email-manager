@@ -79,13 +79,38 @@ func (handler *EmailHandler) SendEmail(context *gin.Context) {
 	}
 	account := accountInterface.(domain.Account)
 
-	err = handler.sendEmailUseCase.Execute(account, input)
+	emailId, err := handler.sendEmailUseCase.Execute(account, input)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	context.JSON(http.StatusCreated, gin.H{"message": "email enviado"})
+	context.JSON(http.StatusCreated, gin.H{"message": "email enviado", "id": emailId})
+}
+
+// DownloadAttachment godoc
+// @Summary Baixar anexo
+// @Description Baixa um anexo pelo seu ID
+// @Tags Email
+// @Produce octet-stream
+// @Security BearerAuth
+// @Param id path string true "ID do anexo"
+// @Success 200 {file} file
+// @Failure 401 {object} map[string]string "unauthorized"
+// @Failure 404 {object} map[string]string "not found"
+// @Router /emails/attachments/{id}/file [get]
+func (handler *EmailHandler) DownloadAttachment(context *gin.Context) {
+	id := context.Param("id")
+
+	attachment, err := handler.emailRepository.GetAttachmentById(id)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"error": "anexo não encontrado"})
+		return
+	}
+
+	context.Header("Content-Disposition", "attachment; filename=\""+attachment.Filename+"\"")
+	context.Header("Content-Type", attachment.ContentType)
+	context.File(attachment.FileUrl)
 }
 
 // DownloadAttachment godoc

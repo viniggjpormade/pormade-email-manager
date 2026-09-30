@@ -18,7 +18,7 @@ type SendEmailDTO struct {
 }
 
 type SendEmailUseCase interface {
-	Execute(account domain.Account, input SendEmailDTO) error
+	Execute(account domain.Account, input SendEmailDTO) (string, error)
 	ProcessQueuedEmails() error
 }
 
@@ -45,7 +45,7 @@ func NewSendEmailUseCase(
 	}
 }
 
-func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmailDTO) error {
+func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmailDTO) (string, error) {
 	emailId := uuid.New().String()
 
 	var attachmentsEntities []domain.Attachment
@@ -89,7 +89,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 
 	err := useCase.repository.Create(&emailEntity)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	useCase.publishEventCase.Execute(account, emailEntity, "EMAIL_QUEUED", eventAttachments)
@@ -106,7 +106,7 @@ func (useCase *sendEmailUseCase) Execute(account domain.Account, input SendEmail
 
 	go useCase.processSend(emailEntity, params, account)
 
-	return nil
+	return emailId, nil
 }
 
 func (useCase *sendEmailUseCase) processSend(emailEntity domain.Email, params domain.EmailParams, account domain.Account) {
